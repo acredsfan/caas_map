@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="65" height="82" viewBox="0 0 65 82">
+  <!-- Shift everything down by 2px so the top isn’t clipped -->
+  <g transform="translate(0,2)">
+    <path fill="#002d74" stroke="#4d6ca3" stroke-width="2"
+          d="M32.5,0
+             C22.558,0 14.5,8.058 14.5,18
+             c0 13.5 18,32 18,32
+             s18-18.5 18-32
+             c0-9.942-8.058-18-18-18z" />
+    <circle cx="32.5" cy="20" r="10" fill="#ffffff"/>
+    <text x="32.5" y="24" text-anchor="middle" font-size="12" font-family="Calibri"
+          font-weight="bold" fill="#000000">{{NUMBER}}</text>
+  </g>
+</svg>

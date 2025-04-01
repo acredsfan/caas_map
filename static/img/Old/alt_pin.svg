@@ -1,0 +1,10 @@
+<svg width="32" height="64" viewBox="0 0 32 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="pinheadGradient" cx="0.3" cy="0.3" r="0.5" gradientUnits="objectBoundingBox">
+      <stop offset="0%" stop-color="#ADD8E6"/> {/* Lighter blue */}
+      <stop offset="100%" stop-color="#002d74"/> {/* Darker blue */}
+    </radialGradient>
+  </defs>
+  <circle cx="16" cy="16" r="16" fill="url(#pinheadGradient)"/>
+  <path d="M16 32L16 64" stroke="silver" stroke-width="4"/>
+</svg>
