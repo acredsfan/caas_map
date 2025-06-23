@@ -2,7 +2,6 @@ import os
 import io
 import json
 import uuid
-import base64
 from flask import Flask, request, send_from_directory, url_for
 
 import pandas as pd
