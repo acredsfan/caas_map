@@ -139,12 +139,15 @@ L.LabelTextCollision = L.Canvas.extend({
 
             // Collision detection
             var textWidth = (ctx.measureText(layer.options.text).width); //  No need to add p.x here.
-            var textHeight = 20; //  Simplified height,  it was just a fixed value.
-
-            // Calculate label bounds with padding.
+            var fontSize = 16; // Extract from font string "16px 'Meiryo'"
+            var textHeight = fontSize * 1.2; // More realistic text height including line height
+            
+            // Calculate label bounds with padding. Account for text baseline positioning.
+            // In canvas, text is drawn from baseline, so we need to account for text extending above the y coordinate
+            var textTop = p.y + offsetY - textHeight + (fontSize * 0.2); // Account for descenders
             var labelBounds = L.bounds(
-                L.point(p.x + offsetX - this.options.labelPadding, p.y + offsetY - this.options.labelPadding),
-                L.point(p.x + offsetX + textWidth + this.options.labelPadding, p.y + offsetY + textHeight + this.options.labelPadding)
+                L.point(p.x + offsetX - this.options.labelPadding, textTop - this.options.labelPadding),
+                L.point(p.x + offsetX + textWidth + this.options.labelPadding, p.y + offsetY + (fontSize * 0.2) + this.options.labelPadding)
             );
 
             if (this.options.collisionFlg) {

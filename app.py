@@ -537,7 +537,7 @@ def upload_form():
             var markers = [];
 
             var markerCollisionLayer = L.geoJson(markerData, {{
-                renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 0}}),
+                renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 5}}),
                 pointToLayer: function(feature, latlng) {{
                     var marker;
                     if (numberedPin) {{
@@ -649,6 +649,9 @@ def upload_form():
             }}
 
             function getMarkerRect(m) {{
+                // Ensure marker is properly rendered before getting bounds
+                if (!m._icon || !m._icon.parentNode) return null;
+                
                 var iconRect = m._icon ? m._icon.getBoundingClientRect() : null;
                 var tooltip = m.sideTooltip || m.getTooltip();
                 if (!iconRect) return tooltip ? tooltip.getElement().getBoundingClientRect() : null;
@@ -665,19 +668,33 @@ def upload_form():
             }}
 
             function checkCollisions() {{
-                markers.forEach(resetMarker);
+                // Reset all markers first
+                markers.forEach(function(marker) {{
+                    try {{
+                        resetMarker(marker);
+                    }} catch (e) {{
+                        console.warn('Error resetting marker:', e);
+                    }}
+                }});
 
+                // Check for collisions between all marker pairs
                 for (var i = 0; i < markers.length; i++) {{
                     var mi = markers[i];
                     var ri = mi ? getMarkerRect(mi) : null;
                     if (!ri) continue;
+                    
                     for (var j = i + 1; j < markers.length; j++) {{
                         var mj = markers[j];
                         var rj = mj ? getMarkerRect(mj) : null;
                         if (!rj) continue;
+                        
                         if (rectsOverlap(ri, rj)) {{
-                            applyCollision(mi);
-                            applyCollision(mj);
+                            try {{
+                                applyCollision(mi);
+                                applyCollision(mj);
+                            }} catch (e) {{
+                                console.warn('Error applying collision:', e);
+                            }}
                         }}
                     }}
                 }}
@@ -686,10 +703,10 @@ def upload_form():
             markerCollisionLayer.addTo({map_var});
 
             // Give the map a brief moment to render markers before checking for collisions
-            setTimeout(checkCollisions, 200);
+            setTimeout(checkCollisions, 500);
 
             {map_var}.on('zoomend moveend', function() {{
-                setTimeout(checkCollisions, 50);
+                setTimeout(checkCollisions, 100);
             }});
         }});
         """
