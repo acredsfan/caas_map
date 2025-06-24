@@ -335,15 +335,15 @@ def upload_form():
         padding: 10px; white-space:nowrap; text-align: center;">
           <h4 style="margin-top:0; margin-bottom: 10px; font-weight: bold; font-family: Calibri">State Grouping Color Guide</h4>
           <div style="margin-bottom:5px; display: flex; align-items: center;">
-            <i style="background:#9EC1F7;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+            <i style="background:#0056b8;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
             Group 1 (Best Parity Probability)
           </div>
           <div style="margin-bottom:5px; display: flex; align-items: center;">
-            <i style="background:#4C84C4;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+            <i style="background:#00a1e0;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
             Group 2 (Better Parity Probability)
           </div>
           <div style="display: flex; align-items: center;">
-            <i style="background:#1C4E80;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+            <i style="background:#a1d0f3;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
             Group 3 (Good Parity Probability)
           </div>
         </div>
