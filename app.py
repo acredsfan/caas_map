@@ -36,10 +36,14 @@ us_states = gpd.read_file(
 )
 us_states = us_states[us_states["admin"] == "United States of America"]
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
-us_states = us_states.merge(state_groups, left_on="StateAbbr", right_on="State", how="left")
+us_states = us_states.merge(
+    state_groups, left_on="StateAbbr", right_on="State", how="left"
+)
 
 # Create a unified geometry for all Group 1 states using union_all
-group1_union_geom = union_all(us_states.loc[us_states["CaaS Group"] == "Group 1", "geometry"])
+group1_union_geom = union_all(
+    us_states.loc[us_states["CaaS Group"] == "Group 1", "geometry"]
+)
 group1_union_gdf = gpd.GeoDataFrame(geometry=[group1_union_geom], crs=us_states.crs)
 
 GROUP_COLORS = {"Group 1": "#0056b8", "Group 2": "#00a1e0", "Group 3": "#a1d0f3"}
@@ -289,7 +293,11 @@ def upload_form():
             return "Error: Only .csv, .xls, or .xlsx supported.", 400
 
         # Check required columns
-        required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates"}
+        required_cols = {
+            "Location Name",
+            "ZIP/Postal Code",
+            "Electrification Candidates",
+        }
         if not required_cols.issubset(df.columns):
             return "Error: Missing required columns.", 400
 
@@ -342,7 +350,9 @@ def upload_form():
                 "weight": 1,
                 "fillOpacity": 1.0,
                 "className": (
-                    "group1-state" if feat["properties"].get("CaaS Group") == "Group 1" else ""
+                    "group1-state"
+                    if feat["properties"].get("CaaS Group") == "Group 1"
+                    else ""
                 ),
             },
             tooltip=folium.features.GeoJsonTooltip(fields=["name"], aliases=["State:"]),
@@ -352,10 +362,13 @@ def upload_form():
         folium.GeoJson(
             data=group1_union_gdf.__geo_interface__,
             style_function=lambda feat: {
-                "fillColor": GROUP_COLORS["Group 1"],
-                "color": "transparent",
+                # Use a nearly-transparent fill so the drop shadow filter has an
+                # element to work with without obscuring the underlying states.
+                "fillColor": "#ffffff",
+                "color": "#ffffff",
                 "weight": 1,
-                "fillOpacity": 0,
+                "fillOpacity": 0.01,
+                "opacity": 0.01,
                 "className": "group1-union",
             },
         ).add_to(m)
@@ -472,8 +485,12 @@ def upload_form():
 
                 # For numbered pins, inject the correct candidate count into the chosen SVG
                 if numbered_pin:
-                    svg_path = os.path.join("static", "img", os.path.basename(local_pin_url))
-                    svg_injected = load_and_inject_svg(svg_path, row["Electrification Candidates"])
+                    svg_path = os.path.join(
+                        "static", "img", os.path.basename(local_pin_url)
+                    )
+                    svg_injected = load_and_inject_svg(
+                        svg_path, row["Electrification Candidates"]
+                    )
                     marker_svgs.append(svg_injected)
                 else:
                     marker_svgs.append(None)
@@ -668,7 +685,9 @@ def upload_form():
 
             markerCollisionLayer.addTo({map_var});
 
-            checkCollisions();
+            // Give the map a brief moment to render markers before checking for collisions
+            setTimeout(checkCollisions, 200);
+
             {map_var}.on('zoomend moveend', function() {{
                 setTimeout(checkCollisions, 50);
             }});
@@ -736,6 +755,9 @@ def upload_form():
         .group1-union {
             /* Pop-out effect only along the outer boundary of all Group 1 states */
             pointer-events: none;
+            stroke: transparent;
+            fill: #ffffff;
+            fill-opacity: 0.01; /* keep invisible but allow drop shadow */
             filter:
                 drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
                 drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
