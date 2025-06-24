@@ -323,7 +323,8 @@ def upload_form():
                 'fillColor': TIER_COLORS.get(feat['properties']['CaaS Tier'], 'gray'),
                 'color': 'black',
                 'weight': 1,
-                'fillOpacity': 1.0
+                'fillOpacity': 1.0,
+                'className': 'tier1-state' if feat['properties'].get('CaaS Tier') == 'Tier 1' else ''
             },
             tooltip=folium.features.GeoJsonTooltip(fields=['name'], aliases=['State:'])
         ).add_to(m)
@@ -688,6 +689,11 @@ def upload_form():
             border: none;
             box-shadow: 5px 5px 10px #666;
             padding: 0;
+        }
+
+        /* 3D effect for Tier 1 states */
+        .tier1-state {
+            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
         }
         </style>
         """
