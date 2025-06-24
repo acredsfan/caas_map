@@ -362,12 +362,12 @@ def upload_form():
         folium.GeoJson(
             data=group1_union_gdf.__geo_interface__,
             style_function=lambda feat: {
-                # Use a nearly-transparent fill so the drop shadow filter has an
+                # Use a slightly transparent fill so the drop shadow filter has an
                 # element to work with without obscuring the underlying states.
                 "fillColor": "#ffffff",
                 "color": "#ffffff",
                 "weight": 1,
-                "fillOpacity": 0.01,
+                "fillOpacity": 0.05,
                 "opacity": 0.01,
                 "className": "group1-union",
             },
@@ -746,21 +746,18 @@ def upload_form():
             padding: 0;
         }
 
-        /* Base style for Group 1 states */
+        /* Base style for Group 1 states - only brightness, no individual shadows */
         .group1-state {
-            filter:
-                brightness(1.05)
-                drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
-                drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
+            filter: brightness(1.05);
         }
 
-        /* Pronounced shadow for combined Group 1 regions */
+        /* Unified pop-out effect for combined Group 1 regions */
         .group1-union {
             /* Pop-out effect only along the outer boundary of all Group 1 states */
             pointer-events: none;
             stroke: transparent;
             fill: #ffffff;
-            fill-opacity: 0.01; /* keep invisible but allow drop shadow */
+            fill-opacity: 0.05; /* slightly more visible to ensure drop shadow works */
             filter:
                 drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
                 drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
