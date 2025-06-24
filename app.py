@@ -19,17 +19,17 @@ app.app_context().push()
 os.makedirs("static/maps", exist_ok=True)
 os.makedirs("static/img", exist_ok=True)
 
-# Preload tiers & shapefile
-state_tiers = pd.read_csv(r"./input_csv_files/tier_by_state.csv")
+# Preload groups & shapefile
+state_groups = pd.read_csv(r"./input_csv_files/group_by_state.csv")
 us_states = gpd.read_file(r"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp")
 us_states = us_states[us_states['admin'] == 'United States of America']
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
-us_states = us_states.merge(state_tiers, left_on="StateAbbr", right_on="State", how="left")
+us_states = us_states.merge(state_groups, left_on="StateAbbr", right_on="State", how="left")
 
-TIER_COLORS = {
-    "Tier 1": "#0056b8",
-    "Tier 2": "#00a1e0",
-    "Tier 3": "#a1d0f3"
+GROUP_COLORS = {
+    "Group 1": "#0056b8",
+    "Group 2": "#00a1e0",
+    "Group 3": "#a1d0f3"
 }
 
 # ------------------------------------------
@@ -320,11 +320,11 @@ def upload_form():
         folium.GeoJson(
             data=us_states.__geo_interface__,
             style_function=lambda feat: {
-                'fillColor': TIER_COLORS.get(feat['properties']['CaaS Tier'], 'gray'),
+                'fillColor': GROUP_COLORS.get(feat['properties']['CaaS Group'], 'gray'),
                 'color': 'black',
                 'weight': 1,
                 'fillOpacity': 1.0,
-                'className': 'tier1-state' if feat['properties'].get('CaaS Tier') == 'Tier 1' else ''
+                'className': 'group1-state' if feat['properties'].get('CaaS Group') == 'Group 1' else ''
             },
             tooltip=folium.features.GeoJsonTooltip(fields=['name'], aliases=['State:'])
         ).add_to(m)
@@ -352,7 +352,7 @@ def upload_form():
         m.get_root().html.add_child(folium.Element(legend_html))
 
         # Geocoder
-        geolocator = Nominatim(user_agent="tiered_map", timeout=10)
+        geolocator = Nominatim(user_agent="grouped_map", timeout=10)
         geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3)
 
         def build_address_string(row):
@@ -691,8 +691,8 @@ def upload_form():
             padding: 0;
         }
 
-        /* 3D effect for Tier 1 states */
-        .tier1-state {
+        /* 3D effect for Group 1 states */
+        .group1-state {
             filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
         }
         </style>
