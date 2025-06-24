@@ -3,6 +3,8 @@ import io
 import json
 import uuid
 from flask import Flask, request, send_from_directory, url_for
+from pptx import Presentation
+from pptx.util import Inches
 
 import pandas as pd
 import geopandas as gpd
@@ -552,9 +554,10 @@ def upload_form():
                     }}
                     // store default tooltip offset for later adjustments
                     if (marker.getTooltip()) {{
-                        marker.defaultOffset = marker.getTooltip().options.offset.slice();
+                        var off = marker.getTooltip().options.offset;
+                        marker.defaultOffset = (off && off.clone) ? off.clone() : L.point(off);
                     }} else {{
-                        marker.defaultOffset = [0, 0];
+                        marker.defaultOffset = L.point(0, 0);
                     }}
                     marker.sideTooltip = null;
                     marker.leaderLine = null;
@@ -581,11 +584,11 @@ def upload_form():
                     m.bindTooltip(m.labelContent, {{
                         permanent: true,
                         direction: m.defaultDirection,
-                        offset: m.defaultOffset.slice(),
+                        offset: m.defaultOffset.clone(),
                         className: m.defaultClass
                     }});
                 }} else {{
-                    m.getTooltip().setOffset(m.defaultOffset.slice());
+                    m.getTooltip().setOffset(m.defaultOffset.clone());
                 }}
                 if (m._icon) {{
                     m._icon.style.transform = '';
@@ -755,6 +758,29 @@ def upload_form():
 @app.route("/map/<map_id>")
 def serve_map(map_id):
     return send_from_directory("static/maps", f"{map_id}.html")
+
+@app.route("/ppt/<map_id>")
+def download_ppt(map_id):
+    html_path = os.path.join("static", "maps", f"{map_id}.html")
+    if not os.path.isfile(html_path):
+        return "Error: Map not found.", 404
+
+    link = url_for('serve_map', map_id=map_id, _external=True)
+    prs = Presentation()
+    slide = prs.slides.add_slide(prs.slide_layouts[5])
+    title = slide.shapes.title
+    title.text = "Interactive Map"
+    box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
+    tf = box.text_frame
+    p = tf.paragraphs[0]
+    run = p.add_run()
+    run.text = "Open Map"
+    run.hyperlink.address = link
+
+    ppt_filename = f"{map_id}.pptx"
+    ppt_path = os.path.join("static", "maps", ppt_filename)
+    prs.save(ppt_path)
+    return send_from_directory("static/maps", ppt_filename, as_attachment=True)
 
 @app.route('/download_template')
 def download_template():

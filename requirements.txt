@@ -5,3 +5,4 @@ folium
 shapely
 geopy
 openpyxl
+python-pptx
