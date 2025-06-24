@@ -527,7 +527,7 @@ def upload_form():
                         marker.bindTooltip(labelContent, {{
                             permanent: true,
                             direction: 'bottom',
-                            offset: [0, -10],
+                            offset: [0, 0],
                             className: 'always-visible-label-below'
                         }});
                         marker.labelContent = labelContent;
