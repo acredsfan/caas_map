@@ -9,7 +9,9 @@ This project provides a small Flask application for generating interactive maps 
 - Choose different pin styles for the map markers.
 - Group US states by electrification parity probability (using the data in `input_csv_files/group_by_state.csv`).
 - Save the generated map to `static/maps` and open it in the browser.
-- Optionally download a PowerPoint slide that links to the generated map.
+- Optionally download a PowerPoint slide that attempts to embed the map so you
+  can interact with it directly in the slide (falls back to a hyperlink if
+  embedding isn't supported).
 
 ## Installation
 
