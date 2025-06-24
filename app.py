@@ -10,6 +10,7 @@ import pandas as pd
 import geopandas as gpd
 import folium
 from shapely.geometry import Point
+
 # `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
 # back to `unary_union` for older versions so the code runs regardless of the
 # installed Shapely release.
@@ -21,7 +22,7 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'localhost:5001'
+app.config["SERVER_NAME"] = "localhost:5001"
 app.app_context().push()
 
 # Directories
@@ -30,20 +31,19 @@ os.makedirs("static/img", exist_ok=True)
 
 # Preload groups & shapefile
 state_groups = pd.read_csv(r"./input_csv_files/group_by_state.csv")
-us_states = gpd.read_file(r"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp")
-us_states = us_states[us_states['admin'] == 'United States of America']
+us_states = gpd.read_file(
+    r"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp"
+)
+us_states = us_states[us_states["admin"] == "United States of America"]
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
 us_states = us_states.merge(state_groups, left_on="StateAbbr", right_on="State", how="left")
 
 # Create a unified geometry for all Group 1 states using union_all
-group1_union_geom = union_all(us_states.loc[us_states['CaaS Group'] == 'Group 1', 'geometry'])
+group1_union_geom = union_all(us_states.loc[us_states["CaaS Group"] == "Group 1", "geometry"])
 group1_union_gdf = gpd.GeoDataFrame(geometry=[group1_union_geom], crs=us_states.crs)
 
-GROUP_COLORS = {
-    "Group 1": "#0056b8",
-    "Group 2": "#00a1e0",
-    "Group 3": "#a1d0f3"
-}
+GROUP_COLORS = {"Group 1": "#0056b8", "Group 2": "#00a1e0", "Group 3": "#a1d0f3"}
+
 
 # ------------------------------------------
 # Helper function to load an SVG and inject the row's candidate number
@@ -55,58 +55,59 @@ def load_and_inject_svg(svg_path, number_value):
     svg_content = svg_content.replace("{{NUMBER}}", str(number_value))
     return svg_content
 
+
 # Pin definitions
 PIN_TYPES = {
     "primary_dark_blue_sphere": {
-        "url": url_for('static', filename='img/sphere_pin_primary_dark_blue.svg'),
+        "url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"),
         "numbered": False,
-        "label": "Location Name - Candidates"
+        "label": "Location Name - Candidates",
     },
     "primary_dark_blue_number": {
-        "url": url_for('static', filename='img/number_pin_primary_dark_blue.svg'),
+        "url": url_for("static", filename="img/number_pin_primary_dark_blue.svg"),
         "numbered": True,
-        "label": "Location Name"
+        "label": "Location Name",
     },
     "primary_light_blue_sphere": {
-        "url": url_for('static', filename='img/sphere_pin_primary_light_blue.svg'),
+        "url": url_for("static", filename="img/sphere_pin_primary_light_blue.svg"),
         "numbered": False,
-        "label": "Location Name - Candidates"
+        "label": "Location Name - Candidates",
     },
     "primary_light_blue_number": {
-        "url": url_for('static', filename='img/number_pin_primary_light_blue.svg'),
+        "url": url_for("static", filename="img/number_pin_primary_light_blue.svg"),
         "numbered": True,
-        "label": "Location Name"
+        "label": "Location Name",
     },
     "green_sphere": {
-        "url": url_for('static', filename='img/sphere_pin_green.svg'),
+        "url": url_for("static", filename="img/sphere_pin_green.svg"),
         "numbered": False,
-        "label": "Location Name - Candidates"
+        "label": "Location Name - Candidates",
     },
     "green_number": {
-        "url": url_for('static', filename='img/number_pin_green.svg'),
+        "url": url_for("static", filename="img/number_pin_green.svg"),
         "numbered": True,
-        "label": "Location Name"
+        "label": "Location Name",
     },
     "secondary_dark_blue_sphere": {
-        "url": url_for('static', filename='img/sphere_pin_secondary_dark_blue.svg'),
+        "url": url_for("static", filename="img/sphere_pin_secondary_dark_blue.svg"),
         "numbered": False,
-        "label": "Location Name - Candidates"
+        "label": "Location Name - Candidates",
     },
     "secondary_dark_blue_number": {
-        "url": url_for('static', filename='img/number_pin_secondary_dark_blue.svg'),
+        "url": url_for("static", filename="img/number_pin_secondary_dark_blue.svg"),
         "numbered": True,
-        "label": "Location Name"
+        "label": "Location Name",
     },
     "teal_sphere": {
-        "url": url_for('static', filename='img/sphere_pin_teal.svg'),
+        "url": url_for("static", filename="img/sphere_pin_teal.svg"),
         "numbered": False,
-        "label": "Location Name - Candidates"
+        "label": "Location Name - Candidates",
     },
     "teal_number": {
-        "url": url_for('static', filename='img/number_pin_teal.svg'),
+        "url": url_for("static", filename="img/number_pin_teal.svg"),
         "numbered": True,
-        "label": "Location Name"
-    }
+        "label": "Location Name",
+    },
 }
 
 # Nicer form template with updated styling
@@ -267,6 +268,7 @@ FORM_TEMPLATE = """
 </html>
 """
 
+
 @app.route("/", methods=["GET", "POST"])
 def upload_form():
     if request.method == "GET":
@@ -317,7 +319,7 @@ def upload_form():
             return "Error: No pin type selected or invalid pin type.", 400
 
         selected_pin_data = PIN_TYPES[pin_type_key]
-        local_pin_url = selected_pin_data["url"]   # For non-numbered pins
+        local_pin_url = selected_pin_data["url"]  # For non-numbered pins
         numbered_pin = selected_pin_data["numbered"]
         label_template = selected_pin_data["label"]
 
@@ -325,33 +327,37 @@ def upload_form():
         m = folium.Map(
             location=[39.8283, -98.5795],
             zoom_start=5,
-            tiles='https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png',
-            attr='©OpenStreetMap contributors ©CartoDB'
+            tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
+            attr="©OpenStreetMap contributors ©CartoDB",
+            zoomSnap=0.25,
+            zoomDelta=0.25,
         )
 
         # State layer
         folium.GeoJson(
             data=us_states.__geo_interface__,
             style_function=lambda feat: {
-                'fillColor': GROUP_COLORS.get(feat['properties']['CaaS Group'], 'gray'),
-                'color': 'black',
-                'weight': 1,
-                'fillOpacity': 1.0,
-                'className': 'group1-state' if feat['properties'].get('CaaS Group') == 'Group 1' else ''
+                "fillColor": GROUP_COLORS.get(feat["properties"]["CaaS Group"], "gray"),
+                "color": "black",
+                "weight": 1,
+                "fillOpacity": 1.0,
+                "className": (
+                    "group1-state" if feat["properties"].get("CaaS Group") == "Group 1" else ""
+                ),
             },
-            tooltip=folium.features.GeoJsonTooltip(fields=['name'], aliases=['State:'])
+            tooltip=folium.features.GeoJsonTooltip(fields=["name"], aliases=["State:"]),
         ).add_to(m)
 
         # Overlay unified Group 1 geometry to apply a drop shadow only around the group's outer border
         folium.GeoJson(
             data=group1_union_gdf.__geo_interface__,
             style_function=lambda feat: {
-                'fillColor': GROUP_COLORS['Group 1'],
-                'color': 'transparent',
-                'weight': 1,
-                'fillOpacity': 0,
-                'className': 'group1-union'
-            }
+                "fillColor": GROUP_COLORS["Group 1"],
+                "color": "transparent",
+                "weight": 1,
+                "fillOpacity": 0,
+                "className": "group1-union",
+            },
         ).add_to(m)
 
         # Legend
@@ -477,11 +483,15 @@ def upload_form():
                 marker_svgs.append(None)
 
         # Build the GeoDataFrame
-        marker_gdf = gpd.GeoDataFrame({
-            "label": labels,
-            "ElectrificationCandidates": df["Electrification Candidates"],
-            "svgIcon": marker_svgs  # store final per-row SVG here
-        }, geometry=geometry, crs="EPSG:4326")
+        marker_gdf = gpd.GeoDataFrame(
+            {
+                "label": labels,
+                "ElectrificationCandidates": df["Electrification Candidates"],
+                "svgIcon": marker_svgs,  # store final per-row SVG here
+            },
+            geometry=geometry,
+            crs="EPSG:4326",
+        )
 
         marker_gdf.dropna(subset=["geometry"], inplace=True)
 
@@ -719,16 +729,16 @@ def upload_form():
 
         /* Base style for Group 1 states */
         .group1-state {
-            filter: none;
+            filter: brightness(1.05);
         }
 
         /* Pronounced shadow for combined Group 1 regions */
         .group1-union {
-            /* create a subtle 3D effect by layering a light highlight and
-               a darker drop shadow */
+            /* Pop-out effect only along the outer boundary of all Group 1 states */
+            pointer-events: none;
             filter:
-                drop-shadow(-2px -2px 2px rgba(255, 255, 255, 0.8))
-                drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.6));
+                drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
+                drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
         }
         </style>
         """
@@ -756,12 +766,14 @@ def upload_form():
             if old_file.endswith(".html") and old_file != output_filename:
                 os.remove(full_path)
 
-        link = url_for('serve_map', map_id=unique_id, _external=True)
+        link = url_for("serve_map", map_id=unique_id, _external=True)
         return f"Map generated! <a href='{link}' target='_blank'>View Map</a>"
+
 
 @app.route("/map/<map_id>")
 def serve_map(map_id):
     return send_from_directory("static/maps", f"{map_id}.html")
+
 
 @app.route("/ppt/<map_id>")
 def download_ppt(map_id):
@@ -769,7 +781,7 @@ def download_ppt(map_id):
     if not os.path.isfile(html_path):
         return "Error: Map not found.", 404
 
-    link = url_for('serve_map', map_id=map_id, _external=True)
+    link = url_for("serve_map", map_id=map_id, _external=True)
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[5])
     title = slide.shapes.title
@@ -786,12 +798,14 @@ def download_ppt(map_id):
     prs.save(ppt_path)
     return send_from_directory("static/maps", ppt_filename, as_attachment=True)
 
-@app.route('/download_template')
+
+@app.route("/download_template")
 def download_template():
     template_path = "location_pins_template.xlsx"
     if not os.path.isfile(template_path):
         return "Error: location_pins_template.xlsx not found.", 404
-    return send_from_directory('.', 'location_pins_template.xlsx', as_attachment=True)
+    return send_from_directory(".", "location_pins_template.xlsx", as_attachment=True)
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001)
