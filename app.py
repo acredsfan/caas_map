@@ -504,6 +504,9 @@ def upload_form():
                             offset: [0, -10],
                             className: 'always-visible-label-below'
                         }});
+                        marker.labelContent = labelContent;
+                        marker.defaultDirection = 'bottom';
+                        marker.defaultClass = 'always-visible-label-below';
                     }} else {{
                         // Non-numbered pins use standard Leaflet Icon with iconUrl
                         var pinIcon = L.icon({{
@@ -519,6 +522,9 @@ def upload_form():
                             offset: [0, 0],
                             className: 'always-visible-label'
                         }});
+                        marker.labelContent = labelContent;
+                        marker.defaultDirection = 'right';
+                        marker.defaultClass = 'always-visible-label';
                     }}
                     // store default tooltip offset for later adjustments
                     if (marker.getTooltip()) {{
@@ -526,6 +532,9 @@ def upload_form():
                     }} else {{
                         marker.defaultOffset = [0, 0];
                     }}
+                    marker.sideTooltip = null;
+                    marker.leaderLine = null;
+                    marker.collided = false;
                     markers.push(marker);
                     return marker;
                 }}
@@ -535,25 +544,70 @@ def upload_form():
                 return !(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
             }}
 
-            function resolveLabelOverlaps() {{
-                markers.forEach(function(m) {{
-                    if (m.getTooltip()) {{
-                        m.getTooltip().setOffset(m.defaultOffset);
-                    }}
-                }});
+            function resetMarker(m) {{
+                if (m.sideTooltip) {{
+                    {map_var}.removeLayer(m.sideTooltip);
+                    m.sideTooltip = null;
+                }}
+                if (m.leaderLine) {{
+                    {map_var}.removeLayer(m.leaderLine);
+                    m.leaderLine = null;
+                }}
+                if (!m.getTooltip()) {{
+                    m.bindTooltip(m.labelContent, {{
+                        permanent: true,
+                        direction: m.defaultDirection,
+                        offset: m.defaultOffset.slice(),
+                        className: m.defaultClass
+                    }});
+                }} else {{
+                    m.getTooltip().setOffset(m.defaultOffset.slice());
+                }}
+                if (m._icon) {{
+                    m._icon.style.transform = '';
+                }}
+                m.collided = false;
+            }}
+
+            function applyCollision(m) {{
+                if (m.collided) return;
+                m.collided = true;
+                if (m.getTooltip()) {{
+                    m.unbindTooltip();
+                }}
+                var basePt = {map_var}.latLngToContainerPoint(m.getLatLng());
+                var sidePt = basePt.add([60, -20]);
+                var sideLatLng = {map_var}.containerPointToLatLng(sidePt);
+                m.sideTooltip = L.tooltip({{
+                    permanent: true,
+                    direction: 'right',
+                    offset: [0, 0],
+                    className: m.defaultClass
+                }}).setContent(m.labelContent).setLatLng(sideLatLng).addTo({map_var});
+                m.leaderLine = L.polyline([m.getLatLng(), sideLatLng], {{
+                    color: '#555',
+                    weight: 1
+                }}).addTo({map_var});
+                if (m._icon) {{
+                    m._icon.style.transformOrigin = 'center';
+                    m._icon.style.transform = 'scale(0.6)';
+                }}
+            }}
+
+            function checkCollisions() {{
+                markers.forEach(resetMarker);
 
                 for (var i = 0; i < markers.length; i++) {{
-                    var ti = markers[i].getTooltip();
-                    if (!ti || !ti.getElement()) continue;
-                    var ri = ti.getElement().getBoundingClientRect();
+                    var mi = markers[i];
+                    if (!mi._icon) continue;
+                    var ri = mi._icon.getBoundingClientRect();
                     for (var j = i + 1; j < markers.length; j++) {{
-                        var tj = markers[j].getTooltip();
-                        if (!tj || !tj.getElement()) continue;
-                        var rj = tj.getElement().getBoundingClientRect();
+                        var mj = markers[j];
+                        if (!mj._icon) continue;
+                        var rj = mj._icon.getBoundingClientRect();
                         if (rectsOverlap(ri, rj)) {{
-                            var off = tj.options.offset;
-                            tj.setOffset([off[0] + 30, off[1]]);
-                            rj = tj.getElement().getBoundingClientRect();
+                            applyCollision(mi);
+                            applyCollision(mj);
                         }}
                     }}
                 }}
@@ -561,9 +615,9 @@ def upload_form():
 
             markerCollisionLayer.addTo({map_var});
 
-            resolveLabelOverlaps();
+            checkCollisions();
             {map_var}.on('zoomend moveend', function() {{
-                setTimeout(resolveLabelOverlaps, 50);
+                setTimeout(checkCollisions, 50);
             }});
         }});
         """
