@@ -748,7 +748,10 @@ def upload_form():
 
         /* Base style for Group 1 states */
         .group1-state {
-            filter: brightness(1.05);
+            filter:
+                brightness(1.05)
+                drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
+                drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
         }
 
         /* Pronounced shadow for combined Group 1 regions */
@@ -808,12 +811,27 @@ def download_ppt(map_id):
     slide = prs.slides.add_slide(prs.slide_layouts[5])
     title = slide.shapes.title
     title.text = "Interactive Map"
-    box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
-    tf = box.text_frame
-    p = tf.paragraphs[0]
-    run = p.add_run()
-    run.text = "Open Map"
-    run.hyperlink.address = link
+
+    try:
+        # Attempt to embed the HTML map directly as an OLE object so it can be
+        # interacted with when the slide is presented.  This requires PowerPoint
+        # on Windows and may not function on other platforms.
+        slide.shapes.add_ole_object(
+            html_path,
+            prog_id="htmlfile",
+            left=Inches(0.5),
+            top=Inches(1.5),
+            width=Inches(9),
+            height=Inches(5),
+        )
+    except Exception:
+        # Fallback: just provide a hyperlink if embedding fails
+        box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
+        tf = box.text_frame
+        p = tf.paragraphs[0]
+        run = p.add_run()
+        run.text = "Open Map"
+        run.hyperlink.address = link
 
     ppt_filename = f"{map_id}.pptx"
     ppt_path = os.path.join("static", "maps", ppt_filename)
