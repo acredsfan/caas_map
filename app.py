@@ -278,8 +278,18 @@ def upload_form():
         if not required_cols.issubset(df.columns):
             return "Error: Missing required columns.", 400
 
-        # Format ZIP
-        df["ZIP/Postal Code"] = df["ZIP/Postal Code"].apply(lambda z: f"{int(z):05d}")
+        # Format ZIP codes
+        def format_zip(value):
+            """Return zero-padded 5 digit ZIP or empty string."""
+            if pd.isna(value) or value == "":
+                return ""
+            try:
+                # Handle values coming in as floats/strings
+                return f"{int(float(value)):05d}"
+            except (ValueError, TypeError):
+                return ""
+
+        df["ZIP/Postal Code"] = df["ZIP/Postal Code"].apply(format_zip)
 
         # Ensure optional columns exist, even if empty
         for optional_col in ["Street Address", "City", "State"]:
