@@ -1,0 +1,256 @@
+[
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "io",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "io",
+        "description": "io",
+        "detail": "io",
+        "documentation": {}
+    },
+    {
+        "label": "json",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "json",
+        "description": "json",
+        "detail": "json",
+        "documentation": {}
+    },
+    {
+        "label": "uuid",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "uuid",
+        "description": "uuid",
+        "detail": "uuid",
+        "documentation": {}
+    },
+    {
+        "label": "base64",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "base64",
+        "description": "base64",
+        "detail": "base64",
+        "documentation": {}
+    },
+    {
+        "label": "Flask",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "request",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "send_from_directory",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "url_for",
+        "importPath": "flask",
+        "description": "flask",
+        "isExtraImport": true,
+        "detail": "flask",
+        "documentation": {}
+    },
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "geopandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "geopandas",
+        "description": "geopandas",
+        "detail": "geopandas",
+        "documentation": {}
+    },
+    {
+        "label": "folium",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "folium",
+        "description": "folium",
+        "detail": "folium",
+        "documentation": {}
+    },
+    {
+        "label": "Point",
+        "importPath": "shapely.geometry",
+        "description": "shapely.geometry",
+        "isExtraImport": true,
+        "detail": "shapely.geometry",
+        "documentation": {}
+    },
+    {
+        "label": "Nominatim",
+        "importPath": "geopy.geocoders",
+        "description": "geopy.geocoders",
+        "isExtraImport": true,
+        "detail": "geopy.geocoders",
+        "documentation": {}
+    },
+    {
+        "label": "RateLimiter",
+        "importPath": "geopy.extra.rate_limiter",
+        "description": "geopy.extra.rate_limiter",
+        "isExtraImport": true,
+        "detail": "geopy.extra.rate_limiter",
+        "documentation": {}
+    },
+    {
+        "label": "load_and_inject_svg",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def load_and_inject_svg(svg_path, number_value):\n    with open(svg_path, \"r\", encoding=\"utf-8\") as f:\n        svg_content = f.read()\n    # Replace the placeholder {{NUMBER}} with the actual numeric value\n    svg_content = svg_content.replace(\"{{NUMBER}}\", str(number_value))\n    return svg_content\n# Pin definitions\nPIN_TYPES = {\n    \"primary_dark_blue_sphere\": {\n        \"url\": url_for('static', filename='img/sphere_pin_primary_dark_blue.svg'),",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "upload_form",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def upload_form():\n    if request.method == \"GET\":\n        return FORM_TEMPLATE\n    if request.method == \"POST\":\n        uploaded_file = request.files.get(\"file\")\n        if not uploaded_file:\n            return \"Error: No file uploaded.\", 400\n        filename = uploaded_file.filename.lower()\n        # Read CSV or Excel\n        if filename.endswith(\".csv\"):",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "serve_map",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def serve_map(map_id):\n    return send_from_directory(\"static/maps\", f\"{map_id}.html\")\n@app.route('/download_template')\ndef download_template():\n    template_path = \"location_pins_template.xlsx\"\n    if not os.path.isfile(template_path):\n        return \"Error: location_pins_template.xlsx not found.\", 404\n    return send_from_directory('.', 'location_pins_template.xlsx', as_attachment=True)\nif __name__ == \"__main__\":\n    app.run(debug=True, port=5001)",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "download_template",
+        "kind": 2,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "def download_template():\n    template_path = \"location_pins_template.xlsx\"\n    if not os.path.isfile(template_path):\n        return \"Error: location_pins_template.xlsx not found.\", 404\n    return send_from_directory('.', 'location_pins_template.xlsx', as_attachment=True)\nif __name__ == \"__main__\":\n    app.run(debug=True, port=5001)",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app = Flask(__name__)\napp.config['SERVER_NAME'] = 'localhost:5001'\napp.app_context().push()\n# Directories\nos.makedirs(\"static/maps\", exist_ok=True)\nos.makedirs(\"static/img\", exist_ok=True)\n# Preload tiers & shapefile\nstate_tiers = pd.read_csv(r\"./input_csv_files/tier_by_state.csv\")\nus_states = gpd.read_file(r\"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp\")\nus_states = us_states[us_states['admin'] == 'United States of America']",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "app.config['SERVER_NAME']",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "app.config['SERVER_NAME'] = 'localhost:5001'\napp.app_context().push()\n# Directories\nos.makedirs(\"static/maps\", exist_ok=True)\nos.makedirs(\"static/img\", exist_ok=True)\n# Preload tiers & shapefile\nstate_tiers = pd.read_csv(r\"./input_csv_files/tier_by_state.csv\")\nus_states = gpd.read_file(r\"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp\")\nus_states = us_states[us_states['admin'] == 'United States of America']\nus_states[\"StateAbbr\"] = us_states[\"iso_3166_2\"].str.split(\"-\").str[-1]",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "state_tiers",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "state_tiers = pd.read_csv(r\"./input_csv_files/tier_by_state.csv\")\nus_states = gpd.read_file(r\"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp\")\nus_states = us_states[us_states['admin'] == 'United States of America']\nus_states[\"StateAbbr\"] = us_states[\"iso_3166_2\"].str.split(\"-\").str[-1]\nus_states = us_states.merge(state_tiers, left_on=\"StateAbbr\", right_on=\"State\", how=\"left\")\nTIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "us_states",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "us_states = gpd.read_file(r\"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp\")\nus_states = us_states[us_states['admin'] == 'United States of America']\nus_states[\"StateAbbr\"] = us_states[\"iso_3166_2\"].str.split(\"-\").str[-1]\nus_states = us_states.merge(state_tiers, left_on=\"StateAbbr\", right_on=\"State\", how=\"left\")\nTIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}\n# ------------------------------------------",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "us_states",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "us_states = us_states[us_states['admin'] == 'United States of America']\nus_states[\"StateAbbr\"] = us_states[\"iso_3166_2\"].str.split(\"-\").str[-1]\nus_states = us_states.merge(state_tiers, left_on=\"StateAbbr\", right_on=\"State\", how=\"left\")\nTIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}\n# ------------------------------------------\n# Helper function to load an SVG and inject the row's candidate number",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "us_states[\"StateAbbr\"]",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "us_states[\"StateAbbr\"] = us_states[\"iso_3166_2\"].str.split(\"-\").str[-1]\nus_states = us_states.merge(state_tiers, left_on=\"StateAbbr\", right_on=\"State\", how=\"left\")\nTIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}\n# ------------------------------------------\n# Helper function to load an SVG and inject the row's candidate number\n# ------------------------------------------",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "us_states",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "us_states = us_states.merge(state_tiers, left_on=\"StateAbbr\", right_on=\"State\", how=\"left\")\nTIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}\n# ------------------------------------------\n# Helper function to load an SVG and inject the row's candidate number\n# ------------------------------------------\ndef load_and_inject_svg(svg_path, number_value):",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "TIER_COLORS",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "TIER_COLORS = {\n    \"Tier 1\": \"#0056b8\",\n    \"Tier 2\": \"#00a1e0\",\n    \"Tier 3\": \"#a1d0f3\"\n}\n# ------------------------------------------\n# Helper function to load an SVG and inject the row's candidate number\n# ------------------------------------------\ndef load_and_inject_svg(svg_path, number_value):\n    with open(svg_path, \"r\", encoding=\"utf-8\") as f:",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "PIN_TYPES",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "PIN_TYPES = {\n    \"primary_dark_blue_sphere\": {\n        \"url\": url_for('static', filename='img/sphere_pin_primary_dark_blue.svg'),\n        \"numbered\": False,\n        \"label\": \"Location Name - Candidates\"\n    },\n    \"primary_dark_blue_number\": {\n        \"url\": url_for('static', filename='img/number_pin_primary_dark_blue.svg'),\n        \"numbered\": True,\n        \"label\": \"Location Name\"",
+        "detail": "app",
+        "documentation": {}
+    },
+    {
+        "label": "FORM_TEMPLATE",
+        "kind": 5,
+        "importPath": "app",
+        "description": "app",
+        "peekOfCode": "FORM_TEMPLATE = \"\"\"\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <title>Map Uploader</title>\n    <style>\n      body {\n        margin: 0;\n        padding: 0;",
+        "detail": "app",
+        "documentation": {}
+    }
+]

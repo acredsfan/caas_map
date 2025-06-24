@@ -4,3 +4,4 @@ geopandas
 folium
 shapely
 geopy
+openpyxl
