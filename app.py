@@ -494,14 +494,14 @@ def upload_form():
                             html: svgIcon,
                             className: 'custom-numbered-pin',
                             iconSize: [65, 80],
-                            iconAnchor: [32.5, 80]
+                            iconAnchor: [32.5, 40]
                         }});
                         var labelContent = feature.properties.label;
                         marker = L.marker(latlng, {{ icon: pinIcon }});
                         marker.bindTooltip(labelContent, {{
                             permanent: true,
                             direction: 'bottom',
-                            offset: [0, -50],
+                            offset: [0, -10],
                             className: 'always-visible-label-below'
                         }});
                     }} else {{
@@ -509,7 +509,7 @@ def upload_form():
                         var pinIcon = L.icon({{
                             iconUrl: pinIconUrl,
                             iconSize: [50, 50],
-                            iconAnchor: [25, 50]
+                            iconAnchor: [25, 25]
                         }});
                         var labelContent = feature.properties.label;
                         marker = L.marker(latlng, {{icon: pinIcon}});
