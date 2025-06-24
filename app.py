@@ -594,17 +594,33 @@ def upload_form():
                 }}
             }}
 
+            function getMarkerRect(m) {{
+                var iconRect = m._icon ? m._icon.getBoundingClientRect() : null;
+                var tooltip = m.sideTooltip || m.getTooltip();
+                if (!iconRect) return tooltip ? tooltip.getElement().getBoundingClientRect() : null;
+                if (tooltip && tooltip.getElement()) {{
+                    var labelRect = tooltip.getElement().getBoundingClientRect();
+                    return {{
+                        left: Math.min(iconRect.left, labelRect.left),
+                        right: Math.max(iconRect.right, labelRect.right),
+                        top: Math.min(iconRect.top, labelRect.top),
+                        bottom: Math.max(iconRect.bottom, labelRect.bottom)
+                    }};
+                }}
+                return iconRect;
+            }}
+
             function checkCollisions() {{
                 markers.forEach(resetMarker);
 
                 for (var i = 0; i < markers.length; i++) {{
                     var mi = markers[i];
-                    if (!mi._icon) continue;
-                    var ri = mi._icon.getBoundingClientRect();
+                    var ri = mi ? getMarkerRect(mi) : null;
+                    if (!ri) continue;
                     for (var j = i + 1; j < markers.length; j++) {{
                         var mj = markers[j];
-                        if (!mj._icon) continue;
-                        var rj = mj._icon.getBoundingClientRect();
+                        var rj = mj ? getMarkerRect(mj) : null;
+                        if (!rj) continue;
                         if (rectsOverlap(ri, rj)) {{
                             applyCollision(mi);
                             applyCollision(mj);
