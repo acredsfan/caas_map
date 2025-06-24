@@ -8,7 +8,13 @@ import pandas as pd
 import geopandas as gpd
 import folium
 from shapely.geometry import Point
-from shapely.ops import unary_union
+# `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
+# back to `unary_union` for older versions so the code runs regardless of the
+# installed Shapely release.
+try:
+    from shapely import union_all
+except ImportError:  # pragma: no cover - Shapely < 2.1
+    from shapely.ops import unary_union as union_all
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
@@ -27,8 +33,8 @@ us_states = us_states[us_states['admin'] == 'United States of America']
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
 us_states = us_states.merge(state_groups, left_on="StateAbbr", right_on="State", how="left")
 
-# Create a unified geometry for all Group 1 states
-group1_union_geom = us_states[us_states['CaaS Group'] == 'Group 1'].geometry.unary_union
+# Create a unified geometry for all Group 1 states using union_all
+group1_union_geom = union_all(us_states.loc[us_states['CaaS Group'] == 'Group 1', 'geometry'])
 group1_union_gdf = gpd.GeoDataFrame(geometry=[group1_union_geom], crs=us_states.crs)
 
 GROUP_COLORS = {
@@ -334,14 +340,14 @@ def upload_form():
             tooltip=folium.features.GeoJsonTooltip(fields=['name'], aliases=['State:'])
         ).add_to(m)
 
-        # Overlay unified Group 1 geometry to remove internal shadows and create a stronger drop shadow
+        # Overlay unified Group 1 geometry to apply a drop shadow only around the group's outer border
         folium.GeoJson(
             data=group1_union_gdf.__geo_interface__,
             style_function=lambda feat: {
                 'fillColor': GROUP_COLORS['Group 1'],
-                'color': 'none',
-                'weight': 0,
-                'fillOpacity': 1.0,
+                'color': 'transparent',
+                'weight': 1,
+                'fillOpacity': 0,
                 'className': 'group1-union'
             }
         ).add_to(m)
