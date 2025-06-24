@@ -724,7 +724,11 @@ def upload_form():
 
         /* Pronounced shadow for combined Group 1 regions */
         .group1-union {
-            filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.6));
+            /* create a subtle 3D effect by layering a light highlight and
+               a darker drop shadow */
+            filter:
+                drop-shadow(-2px -2px 2px rgba(255, 255, 255, 0.8))
+                drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.6));
         }
         </style>
         """
