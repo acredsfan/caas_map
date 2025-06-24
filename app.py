@@ -481,9 +481,12 @@ def upload_form():
             var pinIconUrl = "{local_pin_url}";
             var numberedPin = {"true" if numbered_pin else "false"};
 
+            var markers = [];
+
             var markerCollisionLayer = L.geoJson(markerData, {{
                 renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 0}}),
                 pointToLayer: function(feature, latlng) {{
+                    var marker;
                     if (numberedPin) {{
                         // Use the injected SVG from our 'svgIcon' property
                         const svgIcon = feature.properties.svgIcon;
@@ -494,14 +497,13 @@ def upload_form():
                             iconAnchor: [32.5, 80]
                         }});
                         var labelContent = feature.properties.label;
-                        var marker = L.marker(latlng, {{ icon: pinIcon }});
+                        marker = L.marker(latlng, {{ icon: pinIcon }});
                         marker.bindTooltip(labelContent, {{
                             permanent: true,
                             direction: 'bottom',
                             offset: [0, -50],
                             className: 'always-visible-label-below'
                         }});
-                        return marker;
                     }} else {{
                         // Non-numbered pins use standard Leaflet Icon with iconUrl
                         var pinIcon = L.icon({{
@@ -510,19 +512,59 @@ def upload_form():
                             iconAnchor: [25, 50]
                         }});
                         var labelContent = feature.properties.label;
-                        var marker = L.marker(latlng, {{icon: pinIcon}});
+                        marker = L.marker(latlng, {{icon: pinIcon}});
                         marker.bindTooltip(labelContent, {{
                             permanent: true,
                             direction: 'right',
                             offset: [0, 0],
                             className: 'always-visible-label'
                         }});
-                        return marker;
                     }}
+                    // store default tooltip offset for later adjustments
+                    if (marker.getTooltip()) {{
+                        marker.defaultOffset = marker.getTooltip().options.offset.slice();
+                    }} else {{
+                        marker.defaultOffset = [0, 0];
+                    }}
+                    markers.push(marker);
+                    return marker;
                 }}
             }});
 
+            function rectsOverlap(r1, r2) {{
+                return !(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
+            }}
+
+            function resolveLabelOverlaps() {{
+                markers.forEach(function(m) {{
+                    if (m.getTooltip()) {{
+                        m.getTooltip().setOffset(m.defaultOffset);
+                    }}
+                }});
+
+                for (var i = 0; i < markers.length; i++) {{
+                    var ti = markers[i].getTooltip();
+                    if (!ti || !ti.getElement()) continue;
+                    var ri = ti.getElement().getBoundingClientRect();
+                    for (var j = i + 1; j < markers.length; j++) {{
+                        var tj = markers[j].getTooltip();
+                        if (!tj || !tj.getElement()) continue;
+                        var rj = tj.getElement().getBoundingClientRect();
+                        if (rectsOverlap(ri, rj)) {{
+                            var off = tj.options.offset;
+                            tj.setOffset([off[0] + 30, off[1]]);
+                            rj = tj.getElement().getBoundingClientRect();
+                        }}
+                    }}
+                }}
+            }}
+
             markerCollisionLayer.addTo({map_var});
+
+            resolveLabelOverlaps();
+            {map_var}.on('zoomend moveend', function() {{
+                setTimeout(resolveLabelOverlaps, 50);
+            }});
         }});
         """
         m.get_root().script.add_child(folium.Element(custom_js))
