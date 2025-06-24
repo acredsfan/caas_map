@@ -537,7 +537,7 @@ def upload_form():
             var markers = [];
 
             var markerCollisionLayer = L.geoJson(markerData, {{
-                renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 0}}),
+                renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 5}}),
                 pointToLayer: function(feature, latlng) {{
                     var marker;
                     if (numberedPin) {{
@@ -686,10 +686,10 @@ def upload_form():
             markerCollisionLayer.addTo({map_var});
 
             // Give the map a brief moment to render markers before checking for collisions
-            setTimeout(checkCollisions, 200);
+            setTimeout(checkCollisions, 500);
 
             {map_var}.on('zoomend moveend', function() {{
-                setTimeout(checkCollisions, 50);
+                setTimeout(checkCollisions, 100);
             }});
         }});
         """
