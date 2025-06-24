@@ -8,7 +8,13 @@ import pandas as pd
 import geopandas as gpd
 import folium
 from shapely.geometry import Point
-from shapely import union_all
+# `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
+# back to `unary_union` for older versions so the code runs regardless of the
+# installed Shapely release.
+try:
+    from shapely import union_all
+except ImportError:  # pragma: no cover - Shapely < 2.1
+    from shapely.ops import unary_union as union_all
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
