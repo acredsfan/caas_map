@@ -8,6 +8,7 @@ import pandas as pd
 import geopandas as gpd
 import folium
 from shapely.geometry import Point
+from shapely import union_all
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
@@ -25,6 +26,10 @@ us_states = gpd.read_file(r"./us_state_boundary_shapefiles/ne_10m_admin_1_states
 us_states = us_states[us_states['admin'] == 'United States of America']
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
 us_states = us_states.merge(state_groups, left_on="StateAbbr", right_on="State", how="left")
+
+# Create a unified geometry for all Group 1 states using union_all
+group1_union_geom = union_all(us_states.loc[us_states['CaaS Group'] == 'Group 1', 'geometry'])
+group1_union_gdf = gpd.GeoDataFrame(geometry=[group1_union_geom], crs=us_states.crs)
 
 GROUP_COLORS = {
     "Group 1": "#0056b8",
@@ -327,6 +332,18 @@ def upload_form():
                 'className': 'group1-state' if feat['properties'].get('CaaS Group') == 'Group 1' else ''
             },
             tooltip=folium.features.GeoJsonTooltip(fields=['name'], aliases=['State:'])
+        ).add_to(m)
+
+        # Overlay unified Group 1 geometry to apply a drop shadow only around the group's outer border
+        folium.GeoJson(
+            data=group1_union_gdf.__geo_interface__,
+            style_function=lambda feat: {
+                'fillColor': GROUP_COLORS['Group 1'],
+                'color': 'transparent',
+                'weight': 1,
+                'fillOpacity': 0,
+                'className': 'group1-union'
+            }
         ).add_to(m)
 
         # Legend
@@ -691,9 +708,14 @@ def upload_form():
             padding: 0;
         }
 
-        /* 3D effect for Group 1 states */
+        /* Base style for Group 1 states */
         .group1-state {
-            filter: drop-shadow(2px 2px 3px rgba(0, 0, 0, 0.5));
+            filter: none;
+        }
+
+        /* Pronounced shadow for combined Group 1 regions */
+        .group1-union {
+            filter: drop-shadow(4px 4px 6px rgba(0, 0, 0, 0.6));
         }
         </style>
         """
