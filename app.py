@@ -337,8 +337,8 @@ def upload_form():
             zoom_start=5,
             tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png",
             attr="©OpenStreetMap contributors ©CartoDB",
-            zoomSnap=0.25,
-            zoomDelta=0.25,
+            zoomSnap=0.01,
+            zoomDelta=0.01,
         )
 
         # State layer
