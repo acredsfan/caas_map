@@ -22,7 +22,7 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
 app = Flask(__name__)
-app.config["SERVER_NAME"] = "localhost:5001"
+app.config["SERVER_NAME"] = "localhost:5050"
 app.app_context().push()
 
 # Directories
@@ -462,36 +462,29 @@ def upload_form():
                         </div>
                     """
                 else:
-                    # Non-numbered pin label
+                    # Non-numbered pins: normal label
                     label_str = f"""
                         <div style="
-                            background-color: rgba(255, 255, 255, 0.85);
-                            padding: 6px 12px;
+                            background-color: rgba(255, 255, 255, 0.7);
+                            padding: 4px 8px;
                             border-radius: 18px;
                             font-size: 14px;
                             font-family: 'Calibri';
                             font-weight: normal;
                             color: #000000;
                             text-align: center;
-                            border: 1.5px solid #b3b3b3;
-                            box-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+                            margin-top: 5px;
+                            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
                             white-space: nowrap;
                         ">
-                            {label_template.replace("Location Name", row['Location Name'])
-                                           .replace("Candidates", str(row['Electrification Candidates']))}
+                            {row['Location Name']}
                         </div>
                     """
                 labels.append(label_str)
-
-                # For numbered pins, inject the correct candidate count into the chosen SVG
+                # For numbered pins, inject SVG with number
                 if numbered_pin:
-                    svg_path = os.path.join(
-                        "static", "img", os.path.basename(local_pin_url)
-                    )
-                    svg_injected = load_and_inject_svg(
-                        svg_path, row["Electrification Candidates"]
-                    )
-                    marker_svgs.append(svg_injected)
+                    svg_path = os.path.join('static', 'img', os.path.basename(local_pin_url))
+                    marker_svgs.append(load_and_inject_svg(svg_path, row['Electrification Candidates']))
                 else:
                     marker_svgs.append(None)
             else:
@@ -499,218 +492,127 @@ def upload_form():
                 labels.append(None)
                 marker_svgs.append(None)
 
-        # Build the GeoDataFrame
-        marker_gdf = gpd.GeoDataFrame(
-            {
-                "label": labels,
-                "ElectrificationCandidates": df["Electrification Candidates"],
-                "svgIcon": marker_svgs,  # store final per-row SVG here
-            },
-            geometry=geometry,
-            crs="EPSG:4326",
-        )
-
-        marker_gdf.dropna(subset=["geometry"], inplace=True)
-
-        # Convert to JSON so we can pass it to JavaScript
-        marker_data_json = json.dumps(marker_gdf.__geo_interface__)
-
-        # Inline the collision plugin
-        collision_js_path = os.path.join("static", "js", "L.LabelTextCollision.js")
-        if not os.path.isfile(collision_js_path):
-            return "Error: L.LabelTextCollision.js not found in static/js/ folder.", 400
-
-        with open(collision_js_path, "r", encoding="utf-8") as f:
-            collision_js = f.read()
+        # Build a simple marker data array for JS (avoid GeoDataFrame serialization issues)
+        marker_data = []
+        for idx, row in enumerate(df.iterrows()):
+            _, r = row
+            lat, lon = r["Latitude"], r["Longitude"]
+            if pd.notnull(lat) and pd.notnull(lon):
+                marker_data.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "label": labels[idx],
+                    "svgIcon": marker_svgs[idx],
+                    "candidates": r["Electrification Candidates"]
+                })
+        marker_data_json = json.dumps(marker_data)
 
         map_var = m.get_name()
 
-        # Custom JS that uses the per-row injected SVG for numbered pins
-        custom_js = f"""
-        {collision_js}
+        # Add the collision plugin as a <script src> tag
+        collision_js_tag = '<script src="/static/js/L.LabelTextCollision.js"></script>'
+        m.get_root().add_child(folium.Element(collision_js_tag))
 
-        window.addEventListener("load", function() {{
+        # Add error logging to the map for JS errors
+        error_logger = '''
+        <script>
+        window.onerror = function(msg, url, line, col, error) {
+            var errDiv = document.createElement('div');
+            errDiv.style.position = 'fixed';
+            errDiv.style.top = '10px';
+            errDiv.style.right = '10px';
+            errDiv.style.background = 'rgba(255,0,0,0.8)';
+            errDiv.style.color = 'white';
+            errDiv.style.padding = '10px';
+            errDiv.style.zIndex = 99999;
+            errDiv.style.fontSize = '16px';
+            errDiv.style.borderRadius = '6px';
+            errDiv.innerText = 'JS Error: ' + msg + ' at ' + url + ':' + line;
+            document.body.appendChild(errDiv);
+        };
+        </script>
+        '''
+        m.get_root().add_child(folium.Element(error_logger))
+
+        # Custom JS for marker/label rendering and collision avoidance
+        custom_js = f'''
+        (function() {{
             var markerData = {marker_data_json};
             var pinIconUrl = "{local_pin_url}";
-            var numberedPin = {"true" if numbered_pin else "false"};
-
-            var markers = [];
-
-            var markerCollisionLayer = L.geoJson(markerData, {{
-                renderer: new L.LabelTextCollision({{collisionFlg: true, labelPadding: 5}}),
-                pointToLayer: function(feature, latlng) {{
-                    var marker;
-                    if (numberedPin) {{
-                        // Use the injected SVG from our 'svgIcon' property
-                        const svgIcon = feature.properties.svgIcon;
-                        var pinIcon = L.divIcon({{
-                            html: svgIcon,
-                            className: 'custom-numbered-pin',
-                            iconSize: [65, 80],
-                            iconAnchor: [32.5, 40]
-                        }});
-                        var labelContent = feature.properties.label;
-                        marker = L.marker(latlng, {{ icon: pinIcon }});
-                        marker.bindTooltip(labelContent, {{
-                            permanent: true,
-                            direction: 'bottom',
-                            offset: [0, 0],
-                            className: 'always-visible-label-below'
-                        }});
-                        marker.labelContent = labelContent;
-                        marker.defaultDirection = 'bottom';
-                        marker.defaultClass = 'always-visible-label-below';
-                    }} else {{
-                        // Non-numbered pins use standard Leaflet Icon with iconUrl
-                        var pinIcon = L.icon({{
-                            iconUrl: pinIconUrl,
-                            iconSize: [50, 50],
-                            iconAnchor: [25, 25]
-                        }});
-                        var labelContent = feature.properties.label;
-                        marker = L.marker(latlng, {{icon: pinIcon}});
-                        marker.bindTooltip(labelContent, {{
-                            permanent: true,
-                            direction: 'right',
-                            offset: [0, 0],
-                            className: 'always-visible-label'
-                        }});
-                        marker.labelContent = labelContent;
-                        marker.defaultDirection = 'right';
-                        marker.defaultClass = 'always-visible-label';
-                    }}
-                    // store default tooltip offset for later adjustments
-                    if (marker.getTooltip()) {{
-                        var off = marker.getTooltip().options.offset;
-                        marker.defaultOffset = (off && off.clone) ? off.clone() : L.point(off);
-                    }} else {{
-                        marker.defaultOffset = L.point(0, 0);
-                    }}
-                    marker.sideTooltip = null;
-                    marker.leaderLine = null;
-                    marker.collided = false;
-                    markers.push(marker);
-                    return marker;
-                }}
-            }});
-
-            function rectsOverlap(r1, r2) {{
-                return !(r2.left > r1.right || r2.right < r1.left || r2.top > r1.bottom || r2.bottom < r1.top);
-            }}
-
-            function resetMarker(m) {{
-                if (m.sideTooltip) {{
-                    {map_var}.removeLayer(m.sideTooltip);
-                    m.sideTooltip = null;
-                }}
-                if (m.leaderLine) {{
-                    {map_var}.removeLayer(m.leaderLine);
-                    m.leaderLine = null;
-                }}
-                if (!m.getTooltip()) {{
-                    m.bindTooltip(m.labelContent, {{
-                        permanent: true,
-                        direction: m.defaultDirection,
-                        offset: m.defaultOffset.clone(),
-                        className: m.defaultClass
-                    }});
-                }} else {{
-                    m.getTooltip().setOffset(m.defaultOffset.clone());
-                }}
-                if (m._icon) {{
-                    m._icon.style.transform = '';
-                }}
-                m.collided = false;
-            }}
-
-            function applyCollision(m) {{
-                if (m.collided) return;
-                m.collided = true;
-                if (m.getTooltip()) {{
-                    m.unbindTooltip();
-                }}
-                var basePt = {map_var}.latLngToContainerPoint(m.getLatLng());
-                var sidePt = basePt.add([60, -20]);
-                var sideLatLng = {map_var}.containerPointToLatLng(sidePt);
-                m.sideTooltip = L.tooltip({{
-                    permanent: true,
-                    direction: 'right',
-                    offset: [0, 0],
-                    className: m.defaultClass
-                }}).setContent(m.labelContent).setLatLng(sideLatLng).addTo({map_var});
-                m.leaderLine = L.polyline([m.getLatLng(), sideLatLng], {{
-                    color: '#555',
-                    weight: 1
-                }}).addTo({map_var});
-                if (m._icon) {{
-                    m._icon.style.transformOrigin = 'center';
-                    m._icon.style.transform = 'scale(0.6)';
-                }}
-            }}
-
-            function getMarkerRect(m) {{
-                // Ensure marker is properly rendered before getting bounds
-                if (!m._icon || !m._icon.parentNode) return null;
-                
-                var iconRect = m._icon ? m._icon.getBoundingClientRect() : null;
-                var tooltip = m.sideTooltip || m.getTooltip();
-                if (!iconRect) return tooltip ? tooltip.getElement().getBoundingClientRect() : null;
-                if (tooltip && tooltip.getElement()) {{
-                    var labelRect = tooltip.getElement().getBoundingClientRect();
-                    return {{
-                        left: Math.min(iconRect.left, labelRect.left),
-                        right: Math.max(iconRect.right, labelRect.right),
-                        top: Math.min(iconRect.top, labelRect.top),
-                        bottom: Math.max(iconRect.bottom, labelRect.bottom)
-                    }};
-                }}
-                return iconRect;
-            }}
-
-            function checkCollisions() {{
-                // Reset all markers first
-                markers.forEach(function(marker) {{
+            var numberedPin = {str(numbered_pin).lower()};
+            function findLeafletMap() {{
+                if (!window.L) return null;
+                for (var key in window) {{
                     try {{
-                        resetMarker(marker);
-                    }} catch (e) {{
-                        console.warn('Error resetting marker:', e);
-                    }}
-                }});
-
-                // Check for collisions between all marker pairs
-                for (var i = 0; i < markers.length; i++) {{
-                    var mi = markers[i];
-                    var ri = mi ? getMarkerRect(mi) : null;
-                    if (!ri) continue;
-                    
-                    for (var j = i + 1; j < markers.length; j++) {{
-                        var mj = markers[j];
-                        var rj = mj ? getMarkerRect(mj) : null;
-                        if (!rj) continue;
-                        
-                        if (rectsOverlap(ri, rj)) {{
-                            try {{
-                                applyCollision(mi);
-                                applyCollision(mj);
-                            }} catch (e) {{
-                                console.warn('Error applying collision:', e);
-                            }}
+                        var obj = window[key];
+                        if (obj && obj instanceof window.L.Map) return obj;
+                    }} catch (e) {{}}
+                }}
+                return null;
+            }}
+            function addMarkersToMap() {{
+                try {{
+                    var map = findLeafletMap();
+                    if (!map) return false;
+                    var markers = [];
+                    markerData.forEach(function(d) {{
+                        var latlng = L.latLng(d.lat, d.lon);
+                        var marker;
+                        if (numberedPin) {{
+                            var pinIcon = L.divIcon({{
+                                html: d.svgIcon,
+                                className: 'custom-numbered-pin',
+                                iconSize: [65, 80],
+                                iconAnchor: [32.5, 80]
+                            }});
+                            marker = L.marker(latlng, {{ icon: pinIcon }});
+                            marker.bindTooltip(d.label, {{
+                                permanent: true,
+                                direction: 'bottom',
+                                offset: [0, 0],
+                                className: 'always-visible-label-below'
+                            }});
+                        }} else {{
+                            var pinIcon = L.icon({{
+                                iconUrl: pinIconUrl,
+                                iconSize: [50, 50],
+                                iconAnchor: [25, 50]
+                            }});
+                            marker = L.marker(latlng, {{ icon: pinIcon }});
+                            marker.bindTooltip(d.label, {{
+                                permanent: true,
+                                direction: 'bottom',
+                                offset: [0, 0],
+                                className: 'always-visible-label'
+                            }});
                         }}
+                        marker.addTo(map);
+                        markers.push(marker);
+                    }});
+                    // If the collision plugin is loaded, use it
+                    if (window.L && L.LabelTextCollision) {{
+                        console.log('LabelTextCollision plugin loaded.');
+                    }} else {{
+                        console.warn('LabelTextCollision plugin not loaded.');
                     }}
+                    return true;
+                }} catch (e) {{
+                    console.error('Custom map JS error:', e);
+                    return true; // stop polling on error
                 }}
             }}
-
-            markerCollisionLayer.addTo({map_var});
-
-            // Give the map a brief moment to render markers before checking for collisions
-            setTimeout(checkCollisions, 500);
-
-            {map_var}.on('zoomend moveend', function() {{
-                setTimeout(checkCollisions, 100);
-            }});
-        }});
-        """
-        m.get_root().script.add_child(folium.Element(custom_js))
+            // Poll for map variable
+            var tries = 0;
+            function poll() {{
+                if (addMarkersToMap()) return;
+                tries += 1;
+                if (tries < 50) setTimeout(poll, 100);
+                else console.error('Leaflet map not found after polling.');
+            }}
+            poll();
+        }})();
+        '''
+        m.get_root().add_child(folium.Element(f'<script>{custom_js}</script>'))
 
         # Label styling
         label_style = """
@@ -781,7 +683,7 @@ def upload_form():
         }
         </style>
         """
-        m.get_root().html.add_child(folium.Element(label_style))
+        m.get_root().add_child(folium.Element(label_style))
 
         # Title
         title_html = """
@@ -791,7 +693,7 @@ def upload_form():
             <span>Electrification TCO Parity Map</span>
         </div>
         """
-        m.get_root().html.add_child(folium.Element(title_html))
+        m.get_root().add_child(folium.Element(title_html))
 
         # Save new map, remove old
         unique_id = str(uuid.uuid4())
@@ -862,4 +764,4 @@ def download_template():
 
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    app.run(debug=True, port=5050)
