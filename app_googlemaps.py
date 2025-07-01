@@ -228,8 +228,13 @@ window.onload = initMap;
 import json
 import uuid
 
+
 # In-memory map data store (for demo; use a DB or persistent store for production)
 MAP_DATA = {}
+
+# Directory for hosted map JSON files
+HOSTED_MAPS_DIR = os.path.join("static", "maps")
+os.makedirs(HOSTED_MAPS_DIR, exist_ok=True)
 
 @app.route("/google_maps", methods=["GET", "POST"])
 def google_maps_form():
@@ -491,9 +496,10 @@ def google_maps_form():
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
                     snapped = True
+            row_num = int(idx) + 2
             if failed or snapped:
                 geocode_warnings.append({
-                    "row": idx+2,  # +2 for header and 0-index
+                    "row": row_num,  # +2 for header and 0-index
                     "location": row["Location Name"],
                     "city": row["City"],
                     "state": row["State"],
@@ -556,17 +562,70 @@ def google_maps_form():
             for w in geocode_warnings:
                 warning_html += f'<li>Row {w["row"]}: {w["location"]} ({w["city"]}, {w["state"]}, {w["zip"]}) &mdash; {w["reason"]}</li>'
             warning_html += '</ul></div>'
-        # Redirect to embeddable map page
-        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a></div>'''
+        # Offer to save for hosting
+        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br><form method="POST" action="/host_map/{map_id}" style="display:inline;"><button type="submit" style="background:#0056b8;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:15px;cursor:pointer;">Save for Hosting</button></form></div>'''
+# Save a map for hosting (persist to disk)
+@app.route("/host_map/<map_id>", methods=["POST"])
+def host_map(map_id):
+    data = MAP_DATA.get(map_id)
+    if not data:
+        return "Error: Map not found.", 404
+    # Save to disk as JSON
+    out_path = os.path.join(HOSTED_MAPS_DIR, f"{map_id}.json")
+    with open(out_path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+    return redirect("/hosted_maps")
+
+# List all hosted maps
+@app.route("/hosted_maps")
+def list_hosted_maps():
+    files = [f for f in os.listdir(HOSTED_MAPS_DIR) if f.endswith(".json")]
+    hosted = []
+    for fname in files:
+        map_id = fname.replace(".json", "")
+        # Try to get a title from the first pin label
+        try:
+            with open(os.path.join(HOSTED_MAPS_DIR, fname), "r", encoding="utf-8") as f:
+                data = json.load(f)
+            title = data["pins"][0]["label"] if data["pins"] else map_id
+        except Exception:
+            title = map_id
+        hosted.append({"id": map_id, "title": title})
+    html = '<div style="font-family:Calibri;max-width:800px;margin:2em auto;">'
+    html += '<h2>Hosted Maps</h2>'
+    html += '<ul style="font-size:18px;">'
+    for m in hosted:
+        html += f'<li><a href="/google_map/{m["id"]}" target="_blank">{m["title"]}</a> '
+        html += f'<form method="POST" action="/delete_map/{m["id"]}" style="display:inline;margin-left:1em;" onsubmit="return confirm(\'Delete this map?\');"><button type="submit" style="background:#b80000;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-size:14px;cursor:pointer;">Delete</button></form></li>'
+    html += '</ul>'
+    html += '<a href="/google_maps">Back to Upload</a>'
+    html += '</div>'
+    return html
+
+# Delete a hosted map
+@app.route("/delete_map/<map_id>", methods=["POST"])
+def delete_map(map_id):
+    path = os.path.join(HOSTED_MAPS_DIR, f"{map_id}.json")
+    if os.path.isfile(path):
+        os.remove(path)
+    return redirect("/hosted_maps")
 
 
 # Embeddable map page
 
+
+# Serve a map by ID, from memory or disk
 @app.route("/google_map/<map_id>")
 def serve_google_map(map_id):
     data = MAP_DATA.get(map_id)
     if not data:
-        return "Error: Map not found.", 404
+        # Try to load from disk
+        path = os.path.join(HOSTED_MAPS_DIR, f"{map_id}.json")
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        else:
+            return "Error: Map not found.", 404
     # Ensure booleans are lowercase for JS (true/false, not True/False)
     return render_template_string(
         GOOGLE_MAPS_EMBED_TEMPLATE,
