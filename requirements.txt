@@ -6,3 +6,4 @@ shapely
 geopy
 openpyxl
 python-pptx
+python-dotenv

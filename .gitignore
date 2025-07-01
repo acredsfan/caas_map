@@ -1,3 +1,4 @@
 static/maps/*.html
 static/maps/*.pptx
 static/maps/*.ppt
+.env

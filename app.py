@@ -1,6 +1,5 @@
 import os
 import io
-import json
 import uuid
 from flask import Flask, request, send_from_directory, url_for
 from pptx import Presentation
@@ -9,7 +8,6 @@ from pptx.util import Inches
 import pandas as pd
 import geopandas as gpd
 import folium
-from shapely.geometry import Point
 
 # `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
 # back to `unary_union` for older versions so the code runs regardless of the
@@ -414,269 +412,119 @@ def upload_form():
             else:
                 return row["ZIP/Postal Code"] + ", USA"
 
-        # Geocode each row
+        # Geocode each row, fallback to state centroid if all else fails
         lat_list, lon_list = [], []
         for _, row in df.iterrows():
             addr_str = build_address_string(row)
             loc = geocode(addr_str)
+            lat, lon = None, None
             if loc is None and row["Street Address"].strip():
                 # fallback to just ZIP
                 zip_loc = geocode(row["ZIP/Postal Code"] + ", USA")
-                lat_list.append(zip_loc.latitude if zip_loc else None)
-                lon_list.append(zip_loc.longitude if zip_loc else None)
-            else:
-                lat_list.append(loc.latitude if loc else None)
-                lon_list.append(loc.longitude if loc else None)
+                if zip_loc:
+                    lat, lon = zip_loc.latitude, zip_loc.longitude
+            elif loc:
+                lat, lon = loc.latitude, loc.longitude
+
+            # Fallback to state centroid if geocoding failed
+            if lat is None or lon is None:
+                state_abbr = row["State"] if "State" in row and row["State"] else None
+                if state_abbr and state_abbr in us_states["StateAbbr"].values:
+                    state_geom = us_states[us_states["StateAbbr"] == state_abbr].geometry.values[0]
+                    centroid = state_geom.centroid
+                    lat, lon = centroid.y, centroid.x
+                else:
+                    lat, lon = None, None
+            lat_list.append(lat)
+            lon_list.append(lon)
 
         df["Latitude"] = lat_list
         df["Longitude"] = lon_list
 
-        # Build geometry and label arrays
-        geometry = []
-        labels = []
-        marker_svgs = []  # This will hold per-row injected SVG (only for numbered pins)
-
+        # Add markers and labels directly to the map in Python
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                geometry.append(Point(lon, lat))
-
-                # Build label text
-                if numbered_pin:
-                    # Bold label if it's a numbered pin
-                    label_str = f"""
-                        <div style="
-                            background-color: rgba(255, 255, 255, 0.7);
-                            padding: 4px 8px;
-                            border-radius: 18px;
-                            font-size: 13px;
-                            font-family: 'Calibri';
-                            font-weight: bold;
-                            color: #000000;
-                            text-align: center;
-                            margin-top: 5px;
-                            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
-                            white-space: nowrap;
-                        ">
-                            {row['Location Name']}
-                        </div>
-                    """
-                else:
-                    # Non-numbered pins: normal label
-                    label_str = f"""
-                        <div style="
-                            background-color: rgba(255, 255, 255, 0.7);
-                            padding: 4px 8px;
-                            border-radius: 18px;
-                            font-size: 14px;
-                            font-family: 'Calibri';
-                            font-weight: normal;
-                            color: #000000;
-                            text-align: center;
-                            margin-top: 5px;
-                            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
-                            white-space: nowrap;
-                        ">
-                            {row['Location Name']}
-                        </div>
-                    """
-                labels.append(label_str)
-                # For numbered pins, inject SVG with number
+                # Build label text (no border, no box-shadow, centered below pin, no background)
+                label_html = f"""
+                    <div class='custom-label-text'>{row['Location Name']}</div>
+                """
                 if numbered_pin:
                     svg_path = os.path.join('static', 'img', os.path.basename(local_pin_url))
-                    marker_svgs.append(load_and_inject_svg(svg_path, row['Electrification Candidates']))
+                    injected_svg = load_and_inject_svg(svg_path, row['Electrification Candidates'])
+                    icon = folium.DivIcon(
+                        html=injected_svg,
+                        icon_size=(65, 80),
+                        icon_anchor=(32, 80),
+                        class_name='custom-numbered-pin'
+                    )
                 else:
-                    marker_svgs.append(None)
-            else:
-                geometry.append(None)
-                labels.append(None)
-                marker_svgs.append(None)
+                    icon = folium.CustomIcon(
+                        icon_image=local_pin_url,
+                        icon_size=(50, 50),
+                        icon_anchor=(25, 50)
+                    )
 
-        # Build a simple marker data array for JS (avoid GeoDataFrame serialization issues)
-        marker_data = []
-        for idx, row in enumerate(df.iterrows()):
-            _, r = row
-            lat, lon = r["Latitude"], r["Longitude"]
-            if pd.notnull(lat) and pd.notnull(lon):
-                marker_data.append({
-                    "lat": lat,
-                    "lon": lon,
-                    "label": labels[idx],
-                    "svgIcon": marker_svgs[idx],
-                    "candidates": r["Electrification Candidates"]
-                })
-        marker_data_json = json.dumps(marker_data)
-
-        map_var = m.get_name()
-
-        # Add the collision plugin as a <script src> tag
-        collision_js_tag = '<script src="/static/js/L.LabelTextCollision.js"></script>'
-        m.get_root().add_child(folium.Element(collision_js_tag))
-
-        # Add error logging to the map for JS errors
-        error_logger = '''
-        <script>
-        window.onerror = function(msg, url, line, col, error) {
-            var errDiv = document.createElement('div');
-            errDiv.style.position = 'fixed';
-            errDiv.style.top = '10px';
-            errDiv.style.right = '10px';
-            errDiv.style.background = 'rgba(255,0,0,0.8)';
-            errDiv.style.color = 'white';
-            errDiv.style.padding = '10px';
-            errDiv.style.zIndex = 99999;
-            errDiv.style.fontSize = '16px';
-            errDiv.style.borderRadius = '6px';
-            errDiv.innerText = 'JS Error: ' + msg + ' at ' + url + ':' + line;
-            document.body.appendChild(errDiv);
-        };
-        </script>
-        '''
-        m.get_root().add_child(folium.Element(error_logger))
-
-        # Custom JS for marker/label rendering and collision avoidance
-        custom_js = f'''
-        (function() {{
-            var markerData = {marker_data_json};
-            var pinIconUrl = "{local_pin_url}";
-            var numberedPin = {str(numbered_pin).lower()};
-            function findLeafletMap() {{
-                if (!window.L) return null;
-                for (var key in window) {{
-                    try {{
-                        var obj = window[key];
-                        if (obj && obj instanceof window.L.Map) return obj;
-                    }} catch (e) {{}}
-                }}
-                return null;
-            }}
-            function addMarkersToMap() {{
-                try {{
-                    var map = findLeafletMap();
-                    if (!map) return false;
-                    var markers = [];
-                    markerData.forEach(function(d) {{
-                        var latlng = L.latLng(d.lat, d.lon);
-                        var marker;
-                        if (numberedPin) {{
-                            var pinIcon = L.divIcon({{
-                                html: d.svgIcon,
-                                className: 'custom-numbered-pin',
-                                iconSize: [65, 80],
-                                iconAnchor: [32.5, 80]
-                            }});
-                            marker = L.marker(latlng, {{ icon: pinIcon }});
-                            marker.bindTooltip(d.label, {{
-                                permanent: true,
-                                direction: 'bottom',
-                                offset: [0, 0],
-                                className: 'always-visible-label-below'
-                            }});
-                        }} else {{
-                            var pinIcon = L.icon({{
-                                iconUrl: pinIconUrl,
-                                iconSize: [50, 50],
-                                iconAnchor: [25, 50]
-                            }});
-                            marker = L.marker(latlng, {{ icon: pinIcon }});
-                            marker.bindTooltip(d.label, {{
-                                permanent: true,
-                                direction: 'bottom',
-                                offset: [0, 0],
-                                className: 'always-visible-label'
-                            }});
-                        }}
-                        marker.addTo(map);
-                        markers.push(marker);
-                    }});
-                    // If the collision plugin is loaded, use it
-                    if (window.L && L.LabelTextCollision) {{
-                        console.log('LabelTextCollision plugin loaded.');
-                    }} else {{
-                        console.warn('LabelTextCollision plugin not loaded.');
-                    }}
-                    return true;
-                }} catch (e) {{
-                    console.error('Custom map JS error:', e);
-                    return true; // stop polling on error
-                }}
-            }}
-            // Poll for map variable
-            var tries = 0;
-            function poll() {{
-                if (addMarkersToMap()) return;
-                tries += 1;
-                if (tries < 50) setTimeout(poll, 100);
-                else console.error('Leaflet map not found after polling.');
-            }}
-            poll();
-        }})();
-        '''
-        m.get_root().add_child(folium.Element(f'<script>{custom_js}</script>'))
+                # Create marker and add to map
+                marker = folium.Marker(
+                    location=[lat, lon],
+                    icon=icon,
+                    tooltip=folium.Tooltip(
+                        label_html,
+                        permanent=True,
+                        sticky=False,
+                        direction='top',  # Place label above pin
+                        offset=[0, -5],   # Move label closer to pin tip
+                        class_name='always-visible-label'
+                    )
+                )
+                marker.add_to(m)
 
         # Label styling
         label_style = """
         <style>
-        /* Turn off Leaflet's bubble for these tooltip classes */
-        .leaflet-tooltip.always-visible-label,
-        .leaflet-tooltip.always-visible-label-below {
-            margin-top: 0 !important;
+        /* Remove background, border, and box-shadow from always-visible-label tooltips */
+        .leaflet-tooltip.always-visible-label {
             background: none !important;
             border: none !important;
             box-shadow: none !important;
             padding: 0 !important;
+            margin: 0 !important;
         }
+        .leaflet-tooltip.always-visible-label .leaflet-tooltip-tip,
         .leaflet-tooltip.always-visible-label:before,
-        .leaflet-tooltip.always-visible-label:after,
-        .leaflet-tooltip.always-visible-label-below:before,
-        .leaflet-tooltip.always-visible-label-below:after {
-            content: none !important;
+        .leaflet-tooltip.always-visible-label:after {
             display: none !important;
         }
-
-        /* Non-numbered label styling */
-        .always-visible-label {
-            border-radius: 18px;
+        /* Custom label text: rounded, no border, no box, centered, no background */
+        .custom-label-text {
+            background: none !important;
+            border-radius: 8px;
             font-size: 14px;
-            font-family: 'Calibri';
+            font-family: 'Calibri', sans-serif;
             font-weight: normal;
             color: #000;
             text-align: center;
             white-space: nowrap;
+            padding: 2px 8px 2px 8px;
+            margin: 0 auto;
+            border: none;
+            box-shadow: none;
+            display: inline-block;
         }
-
-        /* Numbered label styling */
-        .always-visible-label-below {
-            border-radius: 14px;
-            font-size: 13px;
-            font-family: 'Calibri';
-            font-weight: bold;
-            color: #000;
-            text-align: center;
-            white-space: nowrap;
-            margin-top: 0;
-        }
-
-        /* Slight drop-shadow behind the numbered pins */
-        .custom-numbered-pin .leaflet-marker-icon div {
+        .custom-numbered-pin {
             background: none;
             border: none;
-            box-shadow: 5px 5px 10px #666;
-            padding: 0;
+            filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.4));
         }
-
-        /* Base style for Group 1 states - only brightness, no individual shadows */
         .group1-state {
             filter: brightness(1.05);
         }
-
-        /* Unified pop-out effect for combined Group 1 regions */
         .group1-union {
-            /* Pop-out effect only along the outer boundary of all Group 1 states */
             pointer-events: none;
             stroke: transparent;
             fill: #ffffff;
-            fill-opacity: 0.05; /* slightly more visible to ensure drop shadow works */
+            fill-opacity: 0.05;
             filter:
                 drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
                 drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
@@ -726,7 +574,8 @@ def download_ppt(map_id):
     prs = Presentation()
     slide = prs.slides.add_slide(prs.slide_layouts[5])
     title = slide.shapes.title
-    title.text = "Interactive Map"
+    if title:
+        title.text = "Interactive Map"
 
     try:
         # Attempt to embed the HTML map directly as an OLE object so it can be
