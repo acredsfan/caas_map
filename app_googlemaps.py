@@ -118,8 +118,6 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
   <div><span class=\"legend-color\" style=\"background:rgba(161,208,243,0.75)\"></span>Group 3 (Good Parity Probability)</div>
 </div>
 <script src="https://maps.googleapis.com/maps/api/js?key={{api_key}}"></script>
-<!-- MarkerClusterer library -->
-<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <script>
 const statePolygons = {{ state_polygons|safe }};
 const pins = {{ pins|safe }};
@@ -183,8 +181,8 @@ function initMap() {
     });
     polygon.setMap(map);
   });
-  // Add pins with clustering
-  const markers = pins.map(function(pin) {
+  // Add pins directly to the map (no clustering)
+  pins.forEach(function(pin) {
     let icon, iconSize, anchorX, anchorY;
     if (pin.numbered && pin.svg_data) {
       iconSize = {w:65, h:82};
@@ -205,7 +203,7 @@ function initMap() {
         anchor: new google.maps.Point(anchorX, anchorY)
       };
     }
-    return new google.maps.Marker({
+    new google.maps.Marker({
       position: {lat: pin.lat, lng: pin.lng},
       icon: icon,
       title: pin.label,
@@ -215,13 +213,9 @@ function initMap() {
         fontWeight: 'bold',
         fontSize: '16px',
         fontFamily: 'Calibri'
-      }
+      },
+      map: map
     });
-  });
-  // Cluster the markers
-  new markerClusterer.MarkerClusterer({
-    map,
-    markers
   });
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(document.getElementById('legend'));
 }
