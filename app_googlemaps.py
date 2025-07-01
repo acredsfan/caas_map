@@ -196,8 +196,8 @@ function initMap() {
         iconSize = {w:65, h:82};
         anchorX = 32;
         anchorY = 41;
-        // Place label below the pin: y = icon height + 8px
-        labelOriginY = iconSize.h + 8;
+        // Place label below the pin: y = icon height + 2px
+        labelOriginY = iconSize.h + 2;
         icon = {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
           scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
@@ -208,8 +208,8 @@ function initMap() {
         iconSize = {w:50, h:50};
         anchorX = 25;
         anchorY = 50;
-        // Place label below the pin: y = icon height + 8px
-        labelOriginY = iconSize.h + 8;
+        // Place label below the pin: y = icon height + 2px
+        labelOriginY = iconSize.h + 2;
         icon = {
           url: pin.icon_url,
           scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
