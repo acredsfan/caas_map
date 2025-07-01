@@ -349,19 +349,13 @@ def google_maps_form():
       <label>Select Pin Type:</label>
       <div class="pin-selection" id="pinSelectionContainer"></div>
 
-      <div id="sphereOptions" style="display:none;margin-bottom:12px;">
-        <label style="font-size:14px;">Show Label for Sphere Pin?
-          <input type="checkbox" id="showSphereLabel" name="show_sphere_label" checked>
-        </label>
-        <br>
-        <label style="font-size:14px;">Include EV Candidate Number?
-          <input type="checkbox" id="includeCandidateNumber" name="include_candidate_number">
+      <div style="margin-bottom:12px;">
+        <label style="font-size:14px;">Show Location Name label on pins?
+          <input type="checkbox" id="showLocationLabel" name="show_location_label" checked>
         </label>
       </div>
 
       <input type="hidden" name="pin_type" id="selected_pin_type" required>
-      <input type="hidden" name="show_sphere_label" id="hidden_show_sphere_label">
-      <input type="hidden" name="include_candidate_number" id="hidden_include_candidate_number">
 
       <button type="submit">Upload & Generate Map</button>
       <div class="footer-links">
@@ -422,14 +416,7 @@ def google_maps_form():
     pinSelectionDiv.appendChild(pinOption);
   }
 
-  // Sphere options logic
-  function updateHiddenSphereOptions() {
-    document.getElementById('hidden_show_sphere_label').value = document.getElementById('showSphereLabel').checked ? '1' : '';
-    document.getElementById('hidden_include_candidate_number').value = document.getElementById('includeCandidateNumber').checked ? '1' : '';
-  }
-  document.getElementById('showSphereLabel').addEventListener('change', updateHiddenSphereOptions);
-  document.getElementById('includeCandidateNumber').addEventListener('change', updateHiddenSphereOptions);
-  updateHiddenSphereOptions();
+  // No per-pin label logic needed
 
   // Automatically select the first pin type
   const firstPinKey = Object.keys(pinTypes)[0];
@@ -474,9 +461,8 @@ def google_maps_form():
         selected_pin_data = PIN_TYPES[pin_type_key]
         local_pin_url = selected_pin_data["url"]
         numbered_pin = selected_pin_data["numbered"]
-        # Sphere pin label options
-        show_sphere_label = request.form.get("show_sphere_label") == '1'
-        include_candidate_number = request.form.get("include_candidate_number") == '1'
+        # Show location label for all pins?
+        show_location_label = request.form.get("show_location_label") == 'on'
 
         import requests
         from shapely.geometry import Point
@@ -561,16 +547,7 @@ def google_maps_form():
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                label = row["Location Name"]
-                # For sphere pins, handle label options
-                if pin_type_key.endswith('_sphere'):
-                    if show_sphere_label:
-                        if include_candidate_number:
-                            label = f"{row['Location Name']}\n{row['Electrification Candidates']} EV Candidates"
-                        else:
-                            label = row["Location Name"]
-                    else:
-                        label = ''
+                label = row["Location Name"] if show_location_label else ''
                 pin = {
                     "lat": lat,
                     "lng": lon,
