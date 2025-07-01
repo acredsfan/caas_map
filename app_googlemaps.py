@@ -447,10 +447,13 @@ def google_maps_form():
                 addr = "USA"
             return addr
         lat_list, lon_list = [], []
-        for _, row in df.iterrows():
+        geocode_warnings = []
+        for idx, row in df.iterrows():
             addr_str = build_address_string(row)
             loc = geocode(addr_str)
             lat, lon = None, None
+            snapped = False
+            failed = False
             if loc:
                 lat, lon = loc.latitude, loc.longitude
             elif row["ZIP/Postal Code"].strip():
@@ -464,8 +467,10 @@ def google_maps_form():
                     state_geom = us_states[us_states["StateAbbr"] == state_abbr].geometry.values[0]
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
+                    snapped = True
                 else:
                     lat, lon = None, None
+                    failed = True
             # Validate: is point in intended state?
             state_abbr = row["State"] if "State" in row and row["State"] else None
             if lat is not None and lon is not None and state_abbr and state_abbr in us_states["StateAbbr"].values:
@@ -475,6 +480,16 @@ def google_maps_form():
                     # Snap to state centroid
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
+                    snapped = True
+            if failed or snapped:
+                geocode_warnings.append({
+                    "row": idx+2,  # +2 for header and 0-index
+                    "location": row["Location Name"],
+                    "city": row["City"],
+                    "state": row["State"],
+                    "zip": row["ZIP/Postal Code"],
+                    "reason": "Could not geocode, snapped to state centroid" if snapped else "Could not geocode, no valid state"
+                })
             lat_list.append(lat)
             lon_list.append(lon)
         df["Latitude"] = lat_list
@@ -523,8 +538,16 @@ def google_maps_form():
             "state_polygons": state_polygons,
             "pin_type": pin_type_key
         }
+        # Show geocode warnings if any
+        warning_html = ""
+        if geocode_warnings:
+            warning_html = '<div style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:12px 18px;border-radius:6px;margin-bottom:1.5em;font-size:16px;max-width:700px;">'
+            warning_html += '<b>Warning:</b> Some locations could not be geocoded and were snapped to the state centroid:<br><ul style="margin:0 0 0 1.5em;">'
+            for w in geocode_warnings:
+                warning_html += f'<li>Row {w["row"]}: {w["location"]} ({w["city"]}, {w["state"]}, {w["zip"]}) &mdash; {w["reason"]}</li>'
+            warning_html += '</ul></div>'
         # Redirect to embeddable map page
-        return f'<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a></div>'
+        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a></div>'''
 
 
 # Embeddable map page
