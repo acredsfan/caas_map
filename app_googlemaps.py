@@ -136,11 +136,11 @@ const pinType = {{ pin_type|tojson }};
 const PIN_ANCHORS = {
   // Format: [anchorX, anchorY, labelOffsetY]
   // Numbered pins: SVG 65x82, tip at (32,80)
-  'primary_dark_blue_number':   [32, 80, 10],
-  'primary_light_blue_number':  [32, 80, 10],
-  'green_number':               [32, 80, 10],
-  'secondary_dark_blue_number': [32, 80, 10],
-  'teal_number':                [32, 80, 10],
+  'primary_dark_blue_number':   [32, 41, 10],
+  'primary_light_blue_number':  [32, 41, 10],
+  'green_number':               [32, 41, 10],
+  'secondary_dark_blue_number': [32, 41, 10],
+  'teal_number':                [32, 41, 10],
   // Spheres: rendered 50x50, anchor at bottom center (25,50)
   'primary_dark_blue_sphere':   [25, 50, 10],
   'primary_light_blue_sphere':  [25, 50, 10],
