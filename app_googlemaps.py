@@ -540,131 +540,13 @@ def serve_google_map(map_id):
     # Ensure booleans are lowercase for JS (true/false, not True/False)
     state_polygons_json = json.dumps(data["state_polygons"]).replace("True", "true").replace("False", "false")
     pins_json = json.dumps(data["pins"]).replace("True", "true").replace("False", "false")
-    return render_template_string(
-        GOOGLE_MAPS_EMBED_TEMPLATE,
-        api_key=GOOGLE_MAPS_API_KEY,
-        state_polygons=state_polygons_json,
-        pins=pins_json,
-        pin_type=json.dumps(data["pin_type"])
-    )
 
-    if request.method == "POST":
-        uploaded_file = request.files.get("file")
-        if not uploaded_file:
-            return "Error: No file uploaded.", 400
-        filename = uploaded_file.filename.lower()
-        if filename.endswith(".csv"):
-            df = pd.read_csv(io.StringIO(uploaded_file.read().decode("utf-8")))
-        elif filename.endswith(".xls") or filename.endswith(".xlsx"):
-            df = pd.read_excel(uploaded_file)
-        else:
-            return "Error: Only .csv, .xls, or .xlsx supported.", 400
-        required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates"}
-        if not required_cols.issubset(df.columns):
-            return "Error: Missing required columns.", 400
-        def format_zip(value):
-            if pd.isna(value) or value == "":
-                return ""
-            try:
-                return f"{int(float(value)):05d}"
-            except (ValueError, TypeError):
-                return ""
-        df["ZIP/Postal Code"] = df["ZIP/Postal Code"].apply(format_zip)
-        for optional_col in ["Street Address", "City", "State"]:
-            if optional_col not in df.columns:
-                df[optional_col] = ""
-            else:
-                df[optional_col] = df[optional_col].fillna("")
-        pin_type_key = request.form.get("pin_type")
-        if not pin_type_key or pin_type_key not in PIN_TYPES:
-            return "Error: No pin type selected or invalid pin type.", 400
-        selected_pin_data = PIN_TYPES[pin_type_key]
-        local_pin_url = selected_pin_data["url"]
-        numbered_pin = selected_pin_data["numbered"]
-        label_template = selected_pin_data["label"]
-        # Geocode
-        geolocator = Nominatim(user_agent="grouped_map", timeout=10)
-        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3)
-        def build_address_string(row):
-            address_parts = []
-            if row["Street Address"].strip():
-                address_parts.append(row["Street Address"].strip())
-            if row["City"].strip():
-                address_parts.append(row["City"].strip())
-            if row["State"].strip():
-                address_parts.append(row["State"].strip())
-            if address_parts:
-                return ", ".join(address_parts) + ", USA"
-            else:
-                return row["ZIP/Postal Code"] + ", USA"
-        lat_list, lon_list = [], []
-        for _, row in df.iterrows():
-            addr_str = build_address_string(row)
-            loc = geocode(addr_str)
-            lat, lon = None, None
-            if loc is None and row["Street Address"].strip():
-                zip_loc = geocode(row["ZIP/Postal Code"] + ", USA")
-                if zip_loc:
-                    lat, lon = zip_loc.latitude, zip_loc.longitude
-            elif loc:
-                lat, lon = loc.latitude, loc.longitude
-            if lat is None or lon is None:
-                state_abbr = row["State"] if "State" in row and row["State"] else None
-                if state_abbr and state_abbr in us_states["StateAbbr"].values:
-                    state_geom = us_states[us_states["StateAbbr"] == state_abbr].geometry.values[0]
-                    centroid = state_geom.centroid
-                    lat, lon = centroid.y, centroid.x
-                else:
-                    lat, lon = None, None
-            lat_list.append(lat)
-            lon_list.append(lon)
-        df["Latitude"] = lat_list
-        df["Longitude"] = lon_list
-        # Prepare pins for JS
-        pins = []
-        for _, row in df.iterrows():
-            lat, lon = row["Latitude"], row["Longitude"]
-            if pd.notnull(lat) and pd.notnull(lon):
-                label = row["Location Name"]
-                pin = {
-                    "lat": lat,
-                    "lng": lon,
-                    "label": label,
-                    "icon_url": local_pin_url,
-                    "numbered": numbered_pin,
-                    "svg_data": None
-                }
-                if numbered_pin:
-                    svg_path = os.path.join('static', 'img', os.path.basename(local_pin_url))
-                    if os.path.isfile(svg_path):
-                        with open(svg_path, "r", encoding="utf-8") as f:
-                            svg_content = f.read().replace("{{NUMBER}}", str(row['Electrification Candidates']))
-                        pin["svg_data"] = svg_content
-                pins.append(pin)
-        # Prepare state polygons for JS
-        state_polygons = []
-        for _, row in us_states.iterrows():
-            color = GROUP_COLORS.get(row["CaaS Group"], "#cccccc")
-            geom = row["geometry"]
-            if geom.geom_type == "Polygon":
-                paths = [[[y, x] for x, y in geom.exterior.coords]]
-            elif geom.geom_type == "MultiPolygon":
-                paths = []
-                for poly in geom.geoms:
-                    paths.append([[y, x] for x, y in poly.exterior.coords])
-            else:
-                continue
-            # Google Maps expects lat/lng order
-            state_polygons.append({"paths": [
-                [{"lat": pt[0], "lng": pt[1]} for pt in path] for path in paths
-            ], "color": color})
-        # Render map page
-        return render_template_string(GOOGLE_MAPS_TEMPLATE,
-            api_key=GOOGLE_MAPS_API_KEY,
-            state_polygons=state_polygons,
-            pins=pins,
-            pin_type=pin_type_key
-        )
+# Root route redirects to /google_maps
+from flask import redirect
+
+@app.route("/")
+def index():
+    return redirect("/google_maps")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5051)
