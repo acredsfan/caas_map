@@ -94,17 +94,25 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
     <style>
       html, body, #map { height: 100%; margin: 0; padding: 0; }
       #legend {
-        background: white; padding: 10px; border: 2px solid #888; border-radius: 8px;
-        position: absolute; left: 20px; bottom: 40px; z-index: 5;
+        background: white;
+        padding: 22px 28px 22px 28px;
+        border: 2.5px solid #888;
+        border-radius: 12px;
+        position: absolute;
+        left: 48px;
+        bottom: 40px;
+        z-index: 5;
+        font-size: 22px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
       }
       .legend-color {
         display: inline-block;
-        width: 24px;
-        height: 16px;
-        margin-right: 8px;
-        border-radius: 3px;
-        /* Opacity matches state polygons (0.75) */
+        width: 32px;
+        height: 22px;
+        margin-right: 12px;
+        border-radius: 5px;
         opacity: 1;
+        vertical-align: middle;
       }
       /* Remove custom label styling for default Google Maps labels */
     </style>
@@ -562,14 +570,25 @@ def google_maps_form():
             for w in geocode_warnings:
                 warning_html += f'<li>Row {w["row"]}: {w["location"]} ({w["city"]}, {w["state"]}, {w["zip"]}) &mdash; {w["reason"]}</li>'
             warning_html += '</ul></div>'
-        # Offer to save for hosting
-        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br><form method="POST" action="/host_map/{map_id}" style="display:inline;"><button type="submit" style="background:#0056b8;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:15px;cursor:pointer;">Save for Hosting</button></form></div>'''
+        # Offer to save for hosting with map name
+        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br>
+        <form method="POST" action="/host_map/{map_id}" style="display:inline;">
+            <label for="map_name" style="font-size:15px;">Map Name:</label>
+            <input type="text" id="map_name" name="map_name" maxlength="100" required style="font-size:15px;padding:4px 8px;border-radius:4px;border:1px solid #aaa;margin-right:10px;">
+            <button type="submit" style="background:#0056b8;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:15px;cursor:pointer;">Save for Hosting</button>
+        </form></div>'''
 # Save a map for hosting (persist to disk)
 @app.route("/host_map/<map_id>", methods=["POST"])
 def host_map(map_id):
     data = MAP_DATA.get(map_id)
     if not data:
         return "Error: Map not found.", 404
+    # Get map name from form
+    map_name = request.form.get("map_name", "Untitled Map").strip()
+    if not map_name:
+        map_name = "Untitled Map"
+    data = dict(data)  # copy to avoid mutating in-memory
+    data["map_name"] = map_name
     # Save to disk as JSON
     out_path = os.path.join(HOSTED_MAPS_DIR, f"{map_id}.json")
     with open(out_path, "w", encoding="utf-8") as f:
@@ -583,11 +602,11 @@ def list_hosted_maps():
     hosted = []
     for fname in files:
         map_id = fname.replace(".json", "")
-        # Try to get a title from the first pin label
+        # Try to get a title from map_name, fallback to first pin label
         try:
             with open(os.path.join(HOSTED_MAPS_DIR, fname), "r", encoding="utf-8") as f:
                 data = json.load(f)
-            title = data["pins"][0]["label"] if data["pins"] else map_id
+            title = data.get("map_name") or (data["pins"][0]["label"] if data.get("pins") else map_id)
         except Exception:
             title = map_id
         hosted.append({"id": map_id, "title": title})
