@@ -1,7 +1,7 @@
 import os
 import io
 import uuid
-from flask import Flask, request, send_from_directory, url_for, jsonify, render_template_string
+from flask import Flask, request, send_from_directory, url_for, jsonify, render_template_string, redirect
 import pandas as pd
 import geopandas as gpd
 from geopy.geocoders import Nominatim
@@ -412,6 +412,7 @@ def google_maps_form():
         required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates"}
         if not required_cols.issubset(df.columns):
             return "Error: Missing required columns.", 400
+
         def format_zip(value):
             if pd.isna(value) or value == "":
                 return ""
@@ -435,6 +436,7 @@ def google_maps_form():
         geolocator = Nominatim(user_agent="grouped_map", timeout=10)
         geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3)
         from shapely.geometry import Point
+
         def build_address_string(row):
             # Always use City, State, ZIP if available
             city = row["City"].strip()
@@ -530,23 +532,29 @@ def google_maps_form():
         # Redirect to embeddable map page
         return f'<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a></div>'
 
+
 # Embeddable map page
+
 @app.route("/google_map/<map_id>")
 def serve_google_map(map_id):
     data = MAP_DATA.get(map_id)
     if not data:
         return "Error: Map not found.", 404
-    import json
     # Ensure booleans are lowercase for JS (true/false, not True/False)
-    state_polygons_json = json.dumps(data["state_polygons"]).replace("True", "true").replace("False", "false")
-    pins_json = json.dumps(data["pins"]).replace("True", "true").replace("False", "false")
+    return render_template_string(
+        GOOGLE_MAPS_EMBED_TEMPLATE,
+        api_key=GOOGLE_MAPS_API_KEY,
+        state_polygons=json.dumps(data["state_polygons"]).replace("True", "true").replace("False", "false"),
+        pins=json.dumps(data["pins"]).replace("True", "true").replace("False", "false"),
+        pin_type=json.dumps(data["pin_type"])
+    )
+
 
 # Root route redirects to /google_maps
-from flask import redirect
-
 @app.route("/")
 def index():
     return redirect("/google_maps")
+
 
 if __name__ == "__main__":
     app.run(debug=True, port=5051)
