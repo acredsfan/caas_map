@@ -95,22 +95,22 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
       html, body, #map { height: 100%; margin: 0; padding: 0; }
       #legend {
         background: white;
-        padding: 22px 28px 22px 28px;
-        border: 2.5px solid #888;
-        border-radius: 12px;
+        padding: 16px 20px 16px 20px;
+        border: 2px solid #888;
+        border-radius: 10px;
         position: absolute;
-        left: 48px;
+        left: 70px;
         bottom: 40px;
         z-index: 5;
-        font-size: 22px;
+        font-size: 16.5px;
         box-shadow: 0 4px 16px rgba(0,0,0,0.10);
       }
       .legend-color {
         display: inline-block;
-        width: 32px;
-        height: 22px;
-        margin-right: 12px;
-        border-radius: 5px;
+        width: 24px;
+        height: 16px;
+        margin-right: 10px;
+        border-radius: 4px;
         opacity: 1;
         vertical-align: middle;
       }
@@ -190,41 +190,47 @@ function initMap() {
     polygon.setMap(map);
   });
   // Add pins directly to the map (no clustering)
-  pins.forEach(function(pin) {
-    let icon, iconSize, anchorX, anchorY;
-    if (pin.numbered && pin.svg_data) {
-      iconSize = {w:65, h:82};
-      anchorX = 32;
-      anchorY = 41;
-      icon = {
-        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
-        scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
-        anchor: new google.maps.Point(anchorX, anchorY)
-      };
-    } else {
-      iconSize = {w:50, h:50};
-      anchorX = 25;
-      anchorY = 50;
-      icon = {
-        url: pin.icon_url,
-        scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
-        anchor: new google.maps.Point(anchorX, anchorY)
-      };
-    }
-    new google.maps.Marker({
-      position: {lat: pin.lat, lng: pin.lng},
-      icon: icon,
-      title: pin.label,
-      label: {
-        text: pin.label,
-        color: '#000',
-        fontWeight: 'bold',
-        fontSize: '16px',
-        fontFamily: 'Calibri'
-      },
-      map: map
+    pins.forEach(function(pin) {
+      let icon, iconSize, anchorX, anchorY, labelOriginY;
+      if (pin.numbered && pin.svg_data) {
+        iconSize = {w:65, h:82};
+        anchorX = 32;
+        anchorY = 41;
+        // Place label below the pin: y = icon height + 8px
+        labelOriginY = iconSize.h + 8;
+        icon = {
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
+          scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
+          anchor: new google.maps.Point(anchorX, anchorY),
+          labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
+        };
+      } else {
+        iconSize = {w:50, h:50};
+        anchorX = 25;
+        anchorY = 50;
+        // Place label below the pin: y = icon height + 8px
+        labelOriginY = iconSize.h + 8;
+        icon = {
+          url: pin.icon_url,
+          scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
+          anchor: new google.maps.Point(anchorX, anchorY),
+          labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
+        };
+      }
+      new google.maps.Marker({
+        position: {lat: pin.lat, lng: pin.lng},
+        icon: icon,
+        title: pin.label,
+        label: {
+          text: pin.label,
+          color: '#000',
+          fontWeight: 'bold',
+          fontSize: '16px',
+          fontFamily: 'Calibri, Arial, sans-serif'
+        },
+        map: map
+      });
     });
-  });
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(document.getElementById('legend'));
 }
 window.onload = initMap;
