@@ -431,7 +431,10 @@ def google_maps_form():
         uploaded_file = request.files.get("file")
         if not uploaded_file:
             return "Error: No file uploaded.", 400
-        filename = uploaded_file.filename.lower()
+        filename = uploaded_file.filename
+        if not filename:
+            return "Error: Uploaded file has no filename.", 400
+        filename = filename.lower()
         if filename.endswith(".csv"):
             df = pd.read_csv(io.StringIO(uploaded_file.read().decode("utf-8")))
         elif filename.endswith(".xls") or filename.endswith(".xlsx"):
@@ -528,7 +531,10 @@ def google_maps_form():
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
                     snapped = True
-            row_num = int(idx) + 2
+            try:
+                row_num = int(idx) + 2
+            except Exception:
+                row_num = 2  # fallback if idx is not convertible
             if failed or snapped:
                 geocode_warnings.append({
                     "row": row_num,  # +2 for header and 0-index
