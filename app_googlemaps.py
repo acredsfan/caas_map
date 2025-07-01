@@ -426,10 +426,23 @@ def google_maps_form():
         selected_pin_data = PIN_TYPES[pin_type_key]
         local_pin_url = selected_pin_data["url"]
         numbered_pin = selected_pin_data["numbered"]
-        # Geocode
-        geolocator = Nominatim(user_agent="grouped_map", timeout=10)
-        geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3)
+
+        import requests
         from shapely.geometry import Point
+
+        def google_geocode(address, api_key):
+            url = "https://maps.googleapis.com/maps/api/geocode/json"
+            params = {"address": address, "key": api_key}
+            try:
+                resp = requests.get(url, params=params, timeout=5)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("status") == "OK" and data["results"]:
+                        loc = data["results"][0]["geometry"]["location"]
+                        return loc["lat"], loc["lng"]
+            except Exception:
+                pass
+            return None, None
 
         def build_address_string(row):
             # Always use City, State, ZIP if available
@@ -448,18 +461,15 @@ def google_maps_form():
             return addr
         lat_list, lon_list = [], []
         geocode_warnings = []
+        api_key = GOOGLE_MAPS_API_KEY
         for idx, row in df.iterrows():
             addr_str = build_address_string(row)
-            loc = geocode(addr_str)
-            lat, lon = None, None
+            lat, lon = google_geocode(addr_str, api_key)
             snapped = False
             failed = False
-            if loc:
-                lat, lon = loc.latitude, loc.longitude
-            elif row["ZIP/Postal Code"].strip():
-                zip_loc = geocode(str(row["ZIP/Postal Code"]).strip() + ", USA")
-                if zip_loc:
-                    lat, lon = zip_loc.latitude, zip_loc.longitude
+            if (lat is None or lon is None) and row["ZIP/Postal Code"].strip():
+                zip_addr = f"{row['ZIP/Postal Code']}, USA"
+                lat, lon = google_geocode(zip_addr, api_key)
             # Fallback: state centroid
             if lat is None or lon is None:
                 state_abbr = row["State"] if "State" in row and row["State"] else None
