@@ -1,7 +1,7 @@
 import os
 import io
 import uuid
-from flask import Flask, request, send_from_directory, url_for, jsonify, render_template_string, redirect
+from flask import Flask, request, send_from_directory, url_for, jsonify, render_template_string, redirect, Response
 import pandas as pd
 import geopandas as gpd
 from geopy.geocoders import Nominatim
@@ -99,11 +99,12 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
         border: 2px solid #888;
         border-radius: 10px;
         position: absolute;
-        left: 70px;
+        left: 32px;
         bottom: 40px;
         z-index: 5;
         font-size: 16.5px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+        margin-left: 0;
+        box-shadow: 0 6px 24px 0 rgba(0,0,0,0.18), 0 1.5px 6px 0 rgba(0,0,0,0.10);
       }
       .legend-color {
         display: inline-block;
@@ -254,7 +255,7 @@ os.makedirs(HOSTED_MAPS_DIR, exist_ok=True)
 def google_maps_form():
     if request.method == "GET":
         # Use the same HTML/CSS/JS as the Folium version for UI consistency
-        return render_template_string(
+        return Response(render_template_string(
             '''<!DOCTYPE html>
 <html>
 <head>
@@ -424,26 +425,26 @@ def google_maps_form():
   updateHiddenSphereOptions();
 </script>
 </body>
-</html>'''
+</html>''', mimetype="text/html")
         )
 
     if request.method == "POST":
         uploaded_file = request.files.get("file")
         if not uploaded_file:
-            return "Error: No file uploaded.", 400
+            return Response("Error: No file uploaded.", status=400)
         filename = uploaded_file.filename
         if not filename:
-            return "Error: Uploaded file has no filename.", 400
+            return Response("Error: Uploaded file has no filename.", status=400)
         filename = filename.lower()
         if filename.endswith(".csv"):
             df = pd.read_csv(io.StringIO(uploaded_file.read().decode("utf-8")))
         elif filename.endswith(".xls") or filename.endswith(".xlsx"):
             df = pd.read_excel(uploaded_file)
         else:
-            return "Error: Only .csv, .xls, or .xlsx supported.", 400
+            return Response("Error: Only .csv, .xls, or .xlsx supported.", status=400)
         required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates"}
         if not required_cols.issubset(df.columns):
-            return "Error: Missing required columns.", 400
+            return Response("Error: Missing required columns.", status=400)
 
         def format_zip(value):
             if pd.isna(value) or value == "":
@@ -460,7 +461,7 @@ def google_maps_form():
                 df[optional_col] = df[optional_col].fillna("")
         pin_type_key = request.form.get("pin_type")
         if not pin_type_key or pin_type_key not in PIN_TYPES:
-            return "Error: No pin type selected or invalid pin type.", 400
+            return Response("Error: No pin type selected or invalid pin type.", status=400)
         selected_pin_data = PIN_TYPES[pin_type_key]
         local_pin_url = selected_pin_data["url"]
         numbered_pin = selected_pin_data["numbered"]
@@ -502,7 +503,7 @@ def google_maps_form():
         lat_list, lon_list = [], []
         geocode_warnings = []
         api_key = GOOGLE_MAPS_API_KEY
-        for idx, row in df.iterrows():
+        for idx, (row_idx, row) in enumerate(df.iterrows()):
             addr_str = build_address_string(row)
             lat, lon = google_geocode(addr_str, api_key)
             snapped = False
@@ -531,10 +532,7 @@ def google_maps_form():
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
                     snapped = True
-            try:
-                row_num = int(idx) + 2
-            except Exception:
-                row_num = 2  # fallback if idx is not convertible
+            row_num = idx + 2  # idx is always int from enumerate
             if failed or snapped:
                 geocode_warnings.append({
                     "row": row_num,  # +2 for header and 0-index
@@ -601,12 +599,12 @@ def google_maps_form():
                 warning_html += f'<li>Row {w["row"]}: {w["location"]} ({w["city"]}, {w["state"]}, {w["zip"]}) &mdash; {w["reason"]}</li>'
             warning_html += '</ul></div>'
         # Offer to save for hosting with map name
-        return f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br>
+        return Response(f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br>
         <form method="POST" action="/host_map/{map_id}" style="display:inline;">
             <label for="map_name" style="font-size:15px;">Map Name:</label>
             <input type="text" id="map_name" name="map_name" maxlength="100" required style="font-size:15px;padding:4px 8px;border-radius:4px;border:1px solid #aaa;margin-right:10px;">
             <button type="submit" style="background:#0056b8;color:#fff;border:none;border-radius:4px;padding:8px 14px;font-size:15px;cursor:pointer;">Save for Hosting</button>
-        </form></div>'''
+        </form></div>''', mimetype="text/html")
 # Save a map for hosting (persist to disk)
 @app.route("/host_map/<map_id>", methods=["POST"])
 def host_map(map_id):
