@@ -44,12 +44,6 @@ us_states = us_states.merge(
     state_groups, left_on="StateAbbr", right_on="State", how="left"
 )
 
-# Create a unified geometry for all Group 1 states using union_all
-group1_union_geom = union_all(
-    us_states.loc[us_states["CaaS Group"] == "Group 1", "geometry"]
-)
-group1_union_gdf = gpd.GeoDataFrame(geometry=[group1_union_geom], crs=us_states.crs)
-
 GROUP_COLORS = {"Group 1": "#0056b8", "Group 2": "#00a1e0", "Group 3": "#a1d0f3"}
 
 
@@ -366,6 +360,7 @@ def upload_form():
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 1.0,
+                # --- CHANGE: Apply a class for the 3D effect ---
                 "className": (
                     "group1-state"
                     if feat["properties"].get("CaaS Group") == "Group 1"
@@ -373,21 +368,6 @@ def upload_form():
                 ),
             },
             tooltip=folium.features.GeoJsonTooltip(fields=["name"], aliases=["State:"]),
-        ).add_to(m)
-
-        # Overlay unified Group 1 geometry to apply a drop shadow only around the group's outer border
-        folium.GeoJson(
-            data=group1_union_gdf.__geo_interface__,
-            style_function=lambda feat: {
-                # Use a slightly transparent fill so the drop shadow filter has an
-                # element to work with without obscuring the underlying states.
-                "fillColor": "#ffffff",
-                "color": "#ffffff",
-                "weight": 1,
-                "fillOpacity": 0.05,
-                "opacity": 0.01,
-                "className": "group1-union",
-            },
         ).add_to(m)
 
         # Legend
@@ -567,17 +547,9 @@ def upload_form():
             border: none;
             filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.4));
         }
+        /* --- CHANGE: Apply the 3D drop-shadow effect --- */
         .group1-state {
-            filter: brightness(1.05);
-        }
-        .group1-union {
-            pointer-events: none;
-            stroke: transparent;
-            fill: #ffffff;
-            fill-opacity: 0.05;
-            filter:
-                drop-shadow(-2px -2px 3px rgba(255, 255, 255, 0.8))
-                drop-shadow(6px 6px 8px rgba(0, 0, 0, 0.7));
+            filter: drop-shadow(5px 5px 5px rgba(0, 0, 0, 0.6));
         }
         </style>
         """
