@@ -20,8 +20,9 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
 app = Flask(__name__)
-# app.config["SERVER_NAME"] = "localhost:5050"
-# app.app_context().push()
+app.config['SERVER_NAME'] = 'caas-map-old.link-smart-home.com'
+app.config['APPLICATION_ROOT'] = '/'
+app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 # Directories
 os.makedirs("static/maps", exist_ok=True)
