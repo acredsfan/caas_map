@@ -46,6 +46,13 @@ us_states = us_states.merge(
 
 GROUP_COLORS = {"Group 1": "#0056b8", "Group 2": "#00a1e0", "Group 3": "#a1d0f3"}
 
+# --- NEW: Helper function to convert hex to rgba for table row coloring ---
+def hex_to_rgba(hex_color, alpha=0.2):
+    if pd.isna(hex_color):
+        return 'rgba(255, 255, 255, 0)' # Return transparent if color is missing
+    hex_color = hex_color.lstrip('#')
+    r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    return f'rgba({r}, {g}, {b}, {alpha})'
 
 # ------------------------------------------
 # Helper function to load an SVG and inject the row's candidate number
@@ -334,11 +341,10 @@ def upload_form():
         if not pin_type_key or pin_type_key not in PIN_TYPES:
             return "Error: No pin type selected or invalid pin type.", 400
         
-        # --- CHANGE: Check if clustering is enabled ---
         cluster_pins = request.form.get("cluster_pins") == "true"
 
         selected_pin_data = PIN_TYPES[pin_type_key]
-        local_pin_url = selected_pin_data["url"]  # For non-numbered pins
+        local_pin_url = selected_pin_data["url"]
         numbered_pin = selected_pin_data["numbered"]
         label_template = selected_pin_data["label"]
 
@@ -360,7 +366,6 @@ def upload_form():
                 "color": "black",
                 "weight": 1,
                 "fillOpacity": 1.0,
-                # --- CHANGE: Apply a class for the 3D effect ---
                 "className": (
                     "group1-state"
                     if feat["properties"].get("CaaS Group") == "Group 1"
@@ -397,7 +402,6 @@ def upload_form():
         geocode = RateLimiter(geolocator.geocode, min_delay_seconds=1, max_retries=3)
 
         def build_address_string(row):
-            # Priority: Street/City/State if present, else fallback to ZIP
             address_parts = []
             if row["Street Address"].strip():
                 address_parts.append(row["Street Address"].strip())
@@ -405,27 +409,21 @@ def upload_form():
                 address_parts.append(row["City"].strip())
             if row["State"].strip():
                 address_parts.append(row["State"].strip())
-
             if address_parts:
                 return ", ".join(address_parts) + ", USA"
-            else:
-                return row["ZIP/Postal Code"] + ", USA"
+            return row["ZIP/Postal Code"] + ", USA"
 
-        # Geocode each row, fallback to state centroid if all else fails
         lat_list, lon_list = [], []
         for _, row in df.iterrows():
             addr_str = build_address_string(row)
             loc = geocode(addr_str)
             lat, lon = None, None
             if loc is None and row["Street Address"].strip():
-                # fallback to just ZIP
                 zip_loc = geocode(row["ZIP/Postal Code"] + ", USA")
                 if zip_loc:
                     lat, lon = zip_loc.latitude, zip_loc.longitude
             elif loc:
                 lat, lon = loc.latitude, loc.longitude
-
-            # Fallback to state centroid if geocoding failed
             if lat is None or lon is None:
                 state_abbr = row["State"] if "State" in row and row["State"] else None
                 if state_abbr and state_abbr in us_states["StateAbbr"].values:
@@ -440,54 +438,81 @@ def upload_form():
         df["Latitude"] = lat_list
         df["Longitude"] = lon_list
         
-        # --- CHANGE: Conditionally create a MarkerCluster layer ---
-        marker_layer = MarkerCluster().add_to(m) if cluster_pins else m
+        # --- NEW: Merge with state data to get group for table coloring ---
+        df = df.merge(us_states[['StateAbbr', 'CaaS Group']], left_on='State', right_on='StateAbbr', how='left')
+        
+        # --- CHANGE: Conditionally create and customize MarkerCluster layer ---
+        if cluster_pins:
+            # --- NEW: JS for custom cluster colors ---
+            icon_create_function = """
+            function(cluster) {
+                var childCount = cluster.getChildCount();
+                var c = ' marker-cluster-';
+                if (childCount < 10) {
+                    c += 'small';
+                } else if (childCount < 100) {
+                    c += 'medium';
+                } else {
+                    c += 'large';
+                }
+                return new L.DivIcon({
+                    html: '<div><span>' + childCount + '</span></div>',
+                    className: 'marker-cluster' + c,
+                    iconSize: new L.Point(40, 40)
+                });
+            }
+            """
+            marker_layer = MarkerCluster(
+                icon_create_function=icon_create_function
+            ).add_to(m)
+        else:
+            marker_layer = m
 
-        # Add markers and labels directly to the map in Python
+
+        # Add markers and labels
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                # Build label text
-                label_html = f"""
-                    <div class='custom-label-text'>{row['Location Name']}</div>
-                """
+                
                 if numbered_pin:
                     svg_path = os.path.join(basedir, 'static', 'img', os.path.basename(local_pin_url))
                     injected_svg = load_and_inject_svg(svg_path, row['Electrification Candidates'])
+                    
+                    combined_html = f"""
+                    <div class="div-icon-container">
+                        <div class="pin-image-wrapper">{injected_svg}</div>
+                        <div class="custom-label-text">{row['Location Name']}</div>
+                    </div>
+                    """
                     icon = folium.DivIcon(
-                        html=injected_svg,
-                        icon_size=(65, 80),
-                        icon_anchor=(32, 80),
-                        class_name='custom-numbered-pin'
+                        html=combined_html,
+                        icon_size=(150, 110),
+                        icon_anchor=(32.5, 80), 
                     )
-                else:
-                    icon = folium.CustomIcon(
-                        icon_image=local_pin_url,
-                        icon_size=(50, 50),
-                        icon_anchor=(25, 50)
+                else: # Sphere pins
+                    combined_html = f"""
+                    <div class="div-icon-container">
+                        <div class="pin-image-wrapper"><img src="{local_pin_url}" class="sphere-pin"></div>
+                        <div class="custom-label-text">{row['Location Name']}</div>
+                    </div>
+                    """
+                    icon = folium.DivIcon(
+                        html=combined_html,
+                        icon_size=(150, 80),
+                        icon_anchor=(25, 50),
                     )
 
-                # Create marker and add to map
-                marker = folium.Marker(
-                    location=[lat, lon],
-                    icon=icon,
-                    tooltip=folium.Tooltip(
-                        label_html,
-                        permanent=True,
-                        sticky=False,
-                        direction='bottom',
-                        offset=[0, 0],
-                        class_name='always-visible-label'
-                    )
-                )
-                # --- CHANGE: Add the marker to the correct layer (map or cluster) ---
+                marker = folium.Marker(location=[lat, lon], icon=icon)
                 marker.add_to(marker_layer)
 
-        # --- CHANGE: Add side table if clustering is enabled ---
         if cluster_pins:
             table_rows = ""
             for _, row in df.iterrows():
-                table_rows += f"<tr><td>{row['Location Name']}</td><td>{row['Electrification Candidates']}</td></tr>"
+                # --- NEW: Get group color for the row ---
+                group = row.get('CaaS Group')
+                hex_color = GROUP_COLORS.get(group)
+                rgba_color = hex_to_rgba(hex_color, alpha=0.3)
+                table_rows += f"<tr style='background-color: {rgba_color};'><td>{row['Location Name']}</td><td>{row['Electrification Candidates']}</td></tr>"
             
             table_html = f"""
             <div style="position: fixed; top: 80px; right: 10px; width: 300px; max-height: 80vh;
@@ -509,24 +534,17 @@ def upload_form():
             """
             m.get_root().html.add_child(folium.Element(table_html))
 
-
-        # Label styling
+        # --- CHANGE: Updated CSS for cluster colors, positioning, and 3D effect ---
         label_style = """
         <style>
-        /* Remove default background/border from the tooltip container */
-        .leaflet-tooltip.always-visible-label {
-            background: none !important;
-            border: none !important;
-            box-shadow: none !important;
-            padding: 0 !important;
-            margin: 0 !important;
+        .div-icon-container {
+            position: relative;
+            text-align: center;
         }
-        .leaflet-tooltip.always-visible-label .leaflet-tooltip-tip,
-        .leaflet-tooltip.always-visible-label:before,
-        .leaflet-tooltip.always-visible-label:after {
-            display: none !important;
+        .pin-image-wrapper {
+            position: relative;
+            display: inline-block;
         }
-        /* Style the custom label text as a rounded box */
         .custom-label-text {
             background: white !important;
             border: 1px solid #ccc !important;
@@ -538,18 +556,39 @@ def upload_form():
             text-align: center;
             white-space: nowrap;
             padding: 4px 10px;
-            margin: 0 auto;
+            margin-top: 5px; /* Space between pin and label */
             box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
             display: inline-block;
         }
-        .custom-numbered-pin {
-            background: none;
-            border: none;
-            filter: drop-shadow(3px 3px 5px rgba(0,0,0,0.4));
+        .sphere-pin {
+            width: 50px;
+            height: 50px;
         }
-        /* --- CHANGE: Apply the 3D drop-shadow effect --- */
         .group1-state {
-            filter: drop-shadow(5px 5px 5px rgba(0, 0, 0, 0.6));
+            filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5));
+            -webkit-filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5));
+        }
+        /* --- NEW: Custom Cluster Colors --- */
+        .marker-cluster-small { background-color: rgba(107, 192, 75, 0.8); }
+        .marker-cluster-small div { background-color: rgba(107, 192, 75, 1); }
+        .marker-cluster-medium { background-color: rgba(0, 161, 224, 0.8); }
+        .marker-cluster-medium div { background-color: rgba(0, 161, 224, 1); }
+        .marker-cluster-large { background-color: rgba(0, 86, 184, 0.8); }
+        .marker-cluster-large div { background-color: rgba(0, 86, 184, 1); }
+        .marker-cluster {
+            color: #fff;
+            border-radius: 50%;
+            text-align: center;
+            font-weight: bold;
+            font-family: Calibri, sans-serif;
+        }
+        .marker-cluster div {
+            width: 30px;
+            height: 30px;
+            margin-left: 5px;
+            margin-top: 5px;
+            border-radius: 50%;
+            line-height: 30px;
         }
         </style>
         """
@@ -565,13 +604,13 @@ def upload_form():
         """
         m.get_root().add_child(folium.Element(title_html))
 
-        # Save new map, remove old
+        # Save new map
         unique_id = str(uuid.uuid4())
         output_filename = f"{unique_id}.html"
         map_path = os.path.join(basedir, "static", "maps", output_filename)
         m.save(map_path)
 
-        # Remove older .html
+        # Remove older maps
         maps_dir = os.path.join(basedir, "static", "maps")
         for old_file in os.listdir(maps_dir):
             full_path = os.path.join(maps_dir, old_file)
@@ -602,9 +641,6 @@ def download_ppt(map_id):
         title.text = "Interactive Map"
 
     try:
-        # Attempt to embed the HTML map directly as an OLE object so it can be
-        # interacted with when the slide is presented.  This requires PowerPoint
-        # on Windows and may not function on other platforms.
         slide.shapes.add_ole_object(
             html_path,
             prog_id="htmlfile",
@@ -614,7 +650,6 @@ def download_ppt(map_id):
             height=Inches(5),
         )
     except Exception:
-        # Fallback: just provide a hyperlink if embedding fails
         box = slide.shapes.add_textbox(Inches(1), Inches(2), Inches(8), Inches(1))
         tf = box.text_frame
         p = tf.paragraphs[0]

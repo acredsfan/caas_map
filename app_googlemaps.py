@@ -143,6 +143,14 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
 <script src="https://maps.googleapis.com/maps/api/js?key={{api_key}}"></script>
 <script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <script>
+// Company-approved cluster colors
+const CLUSTER_COLORS = [
+  {bg: 'rgba(0,86,184,0.85)', row: 'rgba(0,86,184,0.13)'},    // Dark blue
+  {bg: 'rgba(0,161,224,0.85)', row: 'rgba(0,161,224,0.13)'},  // Light blue
+  {bg: 'rgba(107,192,75,0.85)', row: 'rgba(107,192,75,0.13)'} // Green
+];
+</script>
+<script>
 const statePolygons = {{ state_polygons|safe }};
 let pins = {{ pins|safe }};
 const clusteringEnabled = {{ clustering_enabled|tojson }};
@@ -243,23 +251,57 @@ function initMap() {
       position: {lat: pin.lat, lng: pin.lng},
       icon: icon,
       title: labelText,
-      label: markerLabel,
-      map: map
+      label: markerLabel
     });
     markers.push(marker);
   });
   if (clusteringEnabled) {
-    // Use MarkerClusterer from @googlemaps/markerclusterer
+    // Use MarkerClusterer with custom styles
     const clusterer = new markerClusterer.MarkerClusterer({
       map: map,
-      markers: markers
+      markers: markers,
+      renderer: {
+        render: function({ count, position, markers: clusterMarkers }) {
+          // Pick color by cluster index (cycle through company colors)
+          const colorIdx = (count <= 10) ? 0 : (count <= 30) ? 1 : 2;
+          const color = CLUSTER_COLORS[colorIdx].bg;
+          return new google.maps.Marker({
+            position,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              fillColor: color,
+              fillOpacity: 1,
+              strokeColor: '#fff',
+              strokeWeight: 2,
+              scale: 24 + Math.min(24, count),
+              labelOrigin: new google.maps.Point(0, 0)
+            },
+            label: {
+              text: String(count),
+              color: '#fff',
+              fontWeight: 'bold',
+              fontSize: '15px',
+              fontFamily: 'Calibri, Arial, sans-serif'
+            },
+            zIndex: 1000 + count
+          });
+        }
+      }
     });
-    // Build cluster table (list all pins, since JS clustering API does not expose cluster membership directly)
+    // Assign cluster color to each marker (for table row coloring)
+    // We'll use the same logic as above: <=10 dark blue, <=30 light blue, else green
+    let markerClusterColorIdx = [];
+    clusterer.clusters.forEach((cluster, idx) => {
+      const colorIdx = (cluster.markers.length <= 10) ? 0 : (cluster.markers.length <= 30) ? 1 : 2;
+      cluster.markers.forEach(m => markerClusterColorIdx[m.__gm_id] = colorIdx);
+    });
+    // Build cluster table
     const clusterTableContainer = document.getElementById('cluster-table-container');
     clusterTableContainer.style.display = '';
     const tableBody = document.getElementById('cluster-table').querySelector('tbody');
     tableBody.innerHTML = '';
-    pins.forEach(function(pin) {
+    markers.forEach(function(marker, i) {
+      const pin = pins[i];
       const row = document.createElement('tr');
       const nameCell = document.createElement('td');
       nameCell.textContent = pin.info_label || pin.label || '';
@@ -268,6 +310,12 @@ function initMap() {
       candCell.textContent = pin.electrification_candidates || '';
       candCell.style.textAlign = 'right';
       candCell.style.padding = '4px 8px';
+      // Color row by cluster color (transparent)
+      let colorIdx = 0;
+      if (marker.getMap() && marker.getMap().__gm_id) {
+        colorIdx = markerClusterColorIdx[marker.__gm_id] || 0;
+      }
+      row.style.background = CLUSTER_COLORS[colorIdx].row;
       row.appendChild(nameCell);
       row.appendChild(candCell);
       tableBody.appendChild(row);
