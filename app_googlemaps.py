@@ -92,7 +92,8 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
     <meta charset=\"UTF-8\">
     <title>Google Maps Electrification Map</title>
     <style>
-      html, body, #map { height: 100%; margin: 0; padding: 0; }
+      html, body { height: 100%; margin: 0; padding: 0; }
+      #map { height: 100%; min-height: 480px; }
       #legend {
         background: white;
         padding: 16px 20px 16px 20px;
@@ -123,7 +124,7 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
 <div id="title-box" style="position:absolute;top:24px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(255,255,255,0.97);border:2px solid #00245c;border-radius:10px;padding:10px 28px;box-shadow:0 2px 12px 0 rgba(0,0,0,0.10);font-family:Calibri,Arial,sans-serif;font-size:1.45em;font-weight:normal;color:#00245c;text-align:center;letter-spacing:0.01em;max-width:90vw;">
   EV/ICE Total Cost of Ownership (TCO) Parity Probability Map
 </div>
-<div style="display:flex;flex-direction:row;align-items:flex-start;width:100vw;height:80vh;min-height:480px;">
+<div style="display:flex;flex-direction:row;align-items:flex-start;width:100vw;height:calc(100vh - 0px);min-height:480px;">
   <div id=\"map\" style="flex:1 1 0%;min-width:0;height:100%;min-height:480px;"></div>
   <div id=\"cluster-table-container\" style="flex:0 0 350px;max-width:350px;margin-left:24px;display:none;height:100%;overflow-y:auto;">
     <h2 style="font-family:Calibri,Arial,sans-serif;font-size:1.2em;font-weight:bold;color:#00245c;text-align:left;margin:12px 0 8px 0;">Clustered Locations</h2>

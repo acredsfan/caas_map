@@ -476,7 +476,7 @@ def upload_form():
                         permanent=True,
                         sticky=False,
                         direction='bottom',
-                        offset=[0, 5],
+                        offset=[0, 0],
                         class_name='always-visible-label'
                     )
                 )
