@@ -199,6 +199,10 @@ FORM_TEMPLATE = """
       .footer-links {
         margin-top: 10px;
       }
+      .options {
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
     </style>
 </head>
 <body>
@@ -214,8 +218,13 @@ FORM_TEMPLATE = """
 
       <label>Select Pin Type:</label>
       <div class="pin-selection" id="pinSelectionContainer"></div>
-
       <input type="hidden" name="pin_type" id="selected_pin_type" required>
+
+      <div class="options">
+        <label>
+          <input type="checkbox" name="cluster_pins" value="true" checked> Cluster Pins
+        </label>
+      </div>
 
       <button type="submit">Upload & Generate Map</button>
       <div class="footer-links">
@@ -330,6 +339,9 @@ def upload_form():
         pin_type_key = request.form.get("pin_type")
         if not pin_type_key or pin_type_key not in PIN_TYPES:
             return "Error: No pin type selected or invalid pin type.", 400
+        
+        # --- CHANGE: Check if clustering is enabled ---
+        cluster_pins = request.form.get("cluster_pins") == "true"
 
         selected_pin_data = PIN_TYPES[pin_type_key]
         local_pin_url = selected_pin_data["url"]  # For non-numbered pins
@@ -448,8 +460,8 @@ def upload_form():
         df["Latitude"] = lat_list
         df["Longitude"] = lon_list
         
-        # --- CHANGE: Create a MarkerCluster layer ---
-        marker_cluster = MarkerCluster().add_to(m)
+        # --- CHANGE: Conditionally create a MarkerCluster layer ---
+        marker_layer = MarkerCluster().add_to(m) if cluster_pins else m
 
         # Add markers and labels directly to the map in Python
         for _, row in df.iterrows():
@@ -488,8 +500,35 @@ def upload_form():
                         class_name='always-visible-label'
                     )
                 )
-                # --- CHANGE: Add the marker to the cluster layer instead of the map ---
-                marker.add_to(marker_cluster)
+                # --- CHANGE: Add the marker to the correct layer (map or cluster) ---
+                marker.add_to(marker_layer)
+
+        # --- CHANGE: Add side table if clustering is enabled ---
+        if cluster_pins:
+            table_rows = ""
+            for _, row in df.iterrows():
+                table_rows += f"<tr><td>{row['Location Name']}</td><td>{row['Electrification Candidates']}</td></tr>"
+            
+            table_html = f"""
+            <div style="position: fixed; top: 80px; right: 10px; width: 300px; max-height: 80vh;
+            background-color: white; border:1px solid #ccc; z-index:9998; border-radius:5px;
+            padding: 10px; font-family: Calibri; overflow-y: auto;">
+              <h4 style="margin-top:0; margin-bottom: 10px; font-weight: bold;">Locations</h4>
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead style="font-weight: bold;">
+                  <tr>
+                    <td style="padding: 4px; border-bottom: 1px solid #ddd;">Location</td>
+                    <td style="padding: 4px; border-bottom: 1px solid #ddd;">Candidates</td>
+                  </tr>
+                </thead>
+                <tbody>
+                  {table_rows}
+                </tbody>
+              </table>
+            </div>
+            """
+            m.get_root().html.add_child(folium.Element(table_html))
+
 
         # Label styling
         label_style = """
@@ -549,7 +588,7 @@ def upload_form():
         <div style="position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
             z-index: 9999; font-size: 24px; font-weight: bold; font-family: Calibri; background-color: white;
             padding: 10px; border: 2px solid black; border-radius: 10px; text-align: center;">
-            <span>Electrification TCO Parity Map</span>
+            <span>EV/ICE Total Cost of Ownership (TCO) Parity Probability Map</span>
         </div>
         """
         m.get_root().add_child(folium.Element(title_html))

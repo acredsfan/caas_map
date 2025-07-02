@@ -119,17 +119,33 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
     </style>
 </head>
 <body>
-<div id=\"map\"></div>
-<div id=\"legend\">
+<div style="position:relative;z-index:10;">
+  <h1 style="font-family:Calibri,Arial,sans-serif;font-size:2.1em;font-weight:normal;color:#00245c;text-align:center;margin:24px 0 8px 0;letter-spacing:0.01em;">
+    EV/ICE Total Cost of Ownership (TCO) Parity Probability Map
+  </h1>
+</div>
+<div style="display:flex;flex-direction:row;align-items:flex-start;width:100%;">
+  <div id=\"map\" style="flex:1 1 0%;min-width:0;"></div>
+  <div id=\"cluster-table-container\" style="flex:0 0 350px;max-width:350px;margin-left:24px;display:none;">
+    <h2 style="font-family:Calibri,Arial,sans-serif;font-size:1.2em;font-weight:bold;color:#00245c;text-align:left;margin:12px 0 8px 0;">Clustered Locations</h2>
+    <table id=\"cluster-table\" style="width:100%;border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:1em;">
+      <thead><tr><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #bbb;'>Location Name</th><th style='text-align:right;padding:4px 8px;border-bottom:1px solid #bbb;'>Electrification Candidates</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+<div id=\"legend\"> 
   <b>State Grouping Color Guide</b><br>
   <div><span class=\"legend-color\" style=\"background:rgba(0,86,184,0.75)\"></span>Group 1 (Best Parity Probability)</div>
   <div><span class=\"legend-color\" style=\"background:rgba(0,161,224,0.75)\"></span>Group 2 (Better Parity Probability)</div>
   <div><span class=\"legend-color\" style=\"background:rgba(161,208,243,0.75)\"></span>Group 3 (Good Parity Probability)</div>
 </div>
 <script src="https://maps.googleapis.com/maps/api/js?key={{api_key}}"></script>
+<script src="https://unpkg.com/@googlemaps/markerclustererplus/dist/index.min.js"></script>
 <script>
 const statePolygons = {{ state_polygons|safe }};
 let pins = {{ pins|safe }};
+const clusteringEnabled = {{ clustering_enabled|tojson }};
 // Use info_label for info window content
 pins = pins.map(function(pin) {
   if (typeof pin.info_label === 'undefined' && typeof pin.label !== 'undefined') {
@@ -139,33 +155,24 @@ pins = pins.map(function(pin) {
 });
 const pinType = {{ pin_type|tojson }};
 
-// Per-pin-type anchor and labelOrigin offsets (pixels from top-left of image)
-// These values should be set so the anchor is at the exact tip of the pin in the SVG/PNG
 const PIN_ANCHORS = {
-  // Format: [anchorX, anchorY, labelOffsetY]
-  // Numbered pins: SVG 65x82, tip at (32,80)
   'primary_dark_blue_number':   [32, 41, 10],
   'primary_light_blue_number':  [32, 41, 10],
   'green_number':               [32, 41, 10],
   'secondary_dark_blue_number': [32, 41, 10],
   'teal_number':                [32, 41, 10],
-  // Spheres: rendered 50x50, anchor at bottom center (25,50)
   'primary_dark_blue_sphere':   [25, 50, 10],
   'primary_light_blue_sphere':  [25, 50, 10],
   'green_sphere':               [25, 50, 10],
   'secondary_dark_blue_sphere': [25, 50, 10],
   'teal_sphere':                [25, 50, 10],
 };
-
 function getPinAnchor(pinType, iconSize) {
-  // Returns [anchorX, anchorY, labelOffsetY]
   if (PIN_ANCHORS[pinType]) return PIN_ANCHORS[pinType];
-  // Default: bottom center
   return [Math.floor(iconSize.w/2), iconSize.h, 10];
 }
 
 function initMap() {
-  // Custom map style: remove city labels, keep state/country boundaries
   const customMapStyle = [
     { featureType: 'administrative.locality', elementType: 'labels', stylers: [{ visibility: 'off' }] },
     { featureType: 'administrative.neighborhood', elementType: 'labels', stylers: [{ visibility: 'off' }] },
@@ -185,7 +192,6 @@ function initMap() {
     mapTypeControl: false,
     styles: customMapStyle
   });
-  // Draw state polygons
   statePolygons.forEach(function(poly) {
     const polygon = new google.maps.Polygon({
       paths: poly.paths,
@@ -193,55 +199,84 @@ function initMap() {
       strokeOpacity: 0.7,
       strokeWeight: 1,
       fillColor: poly.color,
-      fillOpacity: 0.75 // Slightly opaque
+      fillOpacity: 0.75
     });
     polygon.setMap(map);
   });
-  // Add pins directly to the map (no clustering)
-    const infoWindow = new google.maps.InfoWindow();
-    pins.forEach(function(pin) {
-      let icon, iconSize, anchorX, anchorY, labelOriginY, markerLabel = null;
-      let labelText = pin.info_label || pin.label || '';
-      if (pin.numbered && pin.svg_data) {
-        iconSize = {w:65, h:82};
-        anchorX = 32;
-        anchorY = 41;
-        labelOriginY = iconSize.h - 20;
-        icon = {
-          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
-          scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
-          anchor: new google.maps.Point(anchorX, anchorY),
-          labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
-        };
-      } else {
-        iconSize = {w:50, h:50};
-        anchorX = 25;
-        anchorY = 50;
-        labelOriginY = iconSize.h + 1;
-        icon = {
-          url: pin.icon_url,
-          scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
-          anchor: new google.maps.Point(anchorX, anchorY),
-          labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
-        };
-      }
-      markerLabel = {
-        text: labelText,
-        color: '#222',
-        fontWeight: 'bold',
-        fontSize: '13px',
-        fontFamily: 'Calibri, Arial, sans-serif',
-        // Simulate white outline using text-shadow (not officially supported, but some browsers render it)
-        textShadow: '0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff'
+  const infoWindow = new google.maps.InfoWindow();
+  let markers = [];
+  pins.forEach(function(pin) {
+    let icon, iconSize, anchorX, anchorY, labelOriginY, markerLabel = null;
+    let labelText = pin.info_label || pin.label || '';
+    if (pin.numbered && pin.svg_data) {
+      iconSize = {w:65, h:82};
+      anchorX = 32;
+      anchorY = 41;
+      labelOriginY = iconSize.h - 20;
+      icon = {
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
+        scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
+        anchor: new google.maps.Point(anchorX, anchorY),
+        labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
       };
-      const marker = new google.maps.Marker({
-        position: {lat: pin.lat, lng: pin.lng},
-        icon: icon,
-        title: labelText,
-        label: markerLabel,
-        map: map
-      });
+    } else {
+      iconSize = {w:50, h:50};
+      anchorX = 25;
+      anchorY = 50;
+      labelOriginY = iconSize.h + 1;
+      icon = {
+        url: pin.icon_url,
+        scaledSize: new google.maps.Size(iconSize.w, iconSize.h),
+        anchor: new google.maps.Point(anchorX, anchorY),
+        labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
+      };
+    }
+    markerLabel = {
+      text: labelText,
+      color: '#222',
+      fontWeight: 'bold',
+      fontSize: '13px',
+      fontFamily: 'Calibri, Arial, sans-serif',
+      textShadow: '0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff'
+    };
+    const marker = new google.maps.Marker({
+      position: {lat: pin.lat, lng: pin.lng},
+      icon: icon,
+      title: labelText,
+      label: markerLabel,
+      map: map
     });
+    markers.push(marker);
+  });
+  if (clusteringEnabled) {
+    const clusterer = new markerClusterer.MarkerClusterer({
+      map,
+      markers,
+      onClusterClick: (event) => {
+        // Not used, but could zoom to cluster
+      }
+    });
+    // Build cluster table
+    const clusterTableContainer = document.getElementById('cluster-table-container');
+    clusterTableContainer.style.display = '';
+    const tableBody = document.getElementById('cluster-table').querySelector('tbody');
+    tableBody.innerHTML = '';
+    // For each cluster, list locations and candidates
+    // markerClusterer does not expose clusters directly, so we list all pins
+    pins.forEach(function(pin) {
+      const row = document.createElement('tr');
+      const nameCell = document.createElement('td');
+      nameCell.textContent = pin.info_label || pin.label || '';
+      nameCell.style.padding = '4px 8px';
+      const candCell = document.createElement('td');
+      candCell.textContent = pin.electrification_candidates || '';
+      candCell.style.textAlign = 'right';
+      candCell.style.padding = '4px 8px';
+      row.appendChild(nameCell);
+      row.appendChild(candCell);
+      tableBody.appendChild(row);
+    });
+  }
   map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(document.getElementById('legend'));
 }
 window.onload = initMap;
@@ -264,7 +299,7 @@ os.makedirs(HOSTED_MAPS_DIR, exist_ok=True)
 @app.route("/google_maps", methods=["GET", "POST"])
 def google_maps_form():
     if request.method == "GET":
-        # Use the same HTML/CSS/JS as the Folium version for UI consistency
+        # Add clustering checkbox to upload form
         return Response(render_template_string(
             '''<!DOCTYPE html>
 <html>
@@ -361,8 +396,9 @@ def google_maps_form():
       <div class="pin-selection" id="pinSelectionContainer"></div>
 
       <div style="margin-bottom:12px;">
-        <label style="font-size:14px;">Show Location Name label on pins?
-          <input type="checkbox" id="showLocationLabel" name="show_location_label" checked>
+        <label style="font-size:14px;">
+          <input type="checkbox" id="clusteringCheckbox" name="clustering_enabled" checked>
+          Enable Clustering (show cluster table)
         </label>
       </div>
 
@@ -415,24 +451,14 @@ def google_maps_form():
       pinOption.classList.add("selected-pin");
       selectedPinType = key;
       document.getElementById("selected_pin_type").value = key;
-
-      // Show sphere options only for sphere pins
-      if (key.endsWith('_sphere')) {
-        document.getElementById('sphereOptions').style.display = '';
-      } else {
-        document.getElementById('sphereOptions').style.display = 'none';
-      }
     });
 
     pinSelectionDiv.appendChild(pinOption);
   }
 
-  // No per-pin label logic needed
-
   // Automatically select the first pin type
   const firstPinKey = Object.keys(pinTypes)[0];
   document.querySelector(`.pin-option[data-pin-type=\"${firstPinKey}\"]`).click();
-  updateHiddenSphereOptions();
 </script>
 </body>
 </html>''', mimetype="text/html")
@@ -475,8 +501,7 @@ def google_maps_form():
         selected_pin_data = PIN_TYPES[pin_type_key]
         local_pin_url = selected_pin_data["url"]
         numbered_pin = selected_pin_data["numbered"]
-        # Show location label for all pins?
-        show_location_label = request.form.get("show_location_label") == 'on'
+        clustering_enabled = request.form.get("clustering_enabled") == 'on' or request.form.get("clustering_enabled") == 'true' or request.form.get("clustering_enabled") == 'checked'
 
         import requests
         from shapely.geometry import Point
@@ -496,7 +521,6 @@ def google_maps_form():
             return None, None
 
         def build_address_string(row):
-            # Always use City, State, ZIP if available
             city = row["City"].strip()
             state = row["State"].strip()
             zipc = str(row["ZIP/Postal Code"]).strip()
@@ -521,7 +545,6 @@ def google_maps_form():
             if (lat is None or lon is None) and row["ZIP/Postal Code"].strip():
                 zip_addr = f"{row['ZIP/Postal Code']}, USA"
                 lat, lon = google_geocode(zip_addr, api_key)
-            # Fallback: state centroid
             if lat is None or lon is None:
                 state_abbr = row["State"] if "State" in row and row["State"] else None
                 if state_abbr and state_abbr in us_states["StateAbbr"].values:
@@ -532,20 +555,18 @@ def google_maps_form():
                 else:
                     lat, lon = None, None
                     failed = True
-            # Validate: is point in intended state?
             state_abbr = row["State"] if "State" in row and row["State"] else None
             if lat is not None and lon is not None and state_abbr and state_abbr in us_states["StateAbbr"].values:
                 state_geom = us_states[us_states["StateAbbr"] == state_abbr].geometry.values[0]
                 pt = Point(lon, lat)
                 if not state_geom.contains(pt):
-                    # Snap to state centroid
                     centroid = state_geom.centroid
                     lat, lon = centroid.y, centroid.x
                     snapped = True
-            row_num = idx + 2  # idx is always int from enumerate
+            row_num = idx + 2
             if failed or snapped:
                 geocode_warnings.append({
-                    "row": row_num,  # +2 for header and 0-index
+                    "row": row_num,
                     "location": row["Location Name"],
                     "city": row["City"],
                     "state": row["State"],
@@ -556,12 +577,10 @@ def google_maps_form():
             lon_list.append(lon)
         df["Latitude"] = lat_list
         df["Longitude"] = lon_list
-        # Prepare pins for JS
         pins = []
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                # Always show Location Name as label for all pins
                 label = str(row["Location Name"])
                 pin = {
                     "lat": lat,
@@ -570,7 +589,8 @@ def google_maps_form():
                     "info_label": label,
                     "icon_url": local_pin_url,
                     "numbered": numbered_pin,
-                    "svg_data": None
+                    "svg_data": None,
+                    "electrification_candidates": str(row["Electrification Candidates"])
                 }
                 if numbered_pin:
                     svg_path = os.path.join('static', 'img', os.path.basename(local_pin_url))
@@ -579,7 +599,6 @@ def google_maps_form():
                             svg_content = f.read().replace("{{NUMBER}}", str(row['Electrification Candidates']))
                         pin["svg_data"] = svg_content
                 pins.append(pin)
-        # Prepare state polygons for JS
         state_polygons = []
         for _, row in us_states.iterrows():
             color = GROUP_COLORS.get(row["CaaS Group"], "#cccccc")
@@ -595,14 +614,13 @@ def google_maps_form():
             state_polygons.append({"paths": [
                 [{"lat": pt[0], "lng": pt[1]} for pt in path] for path in paths
             ], "color": color})
-        # Save map data to in-memory store
         map_id = str(uuid.uuid4())
         MAP_DATA[map_id] = {
             "pins": pins,
             "state_polygons": state_polygons,
-            "pin_type": pin_type_key
+            "pin_type": pin_type_key,
+            "clustering_enabled": clustering_enabled
         }
-        # Show geocode warnings if any
         warning_html = ""
         if geocode_warnings:
             warning_html = '<div style="background:#fff3cd;color:#856404;border:1px solid #ffeeba;padding:12px 18px;border-radius:6px;margin-bottom:1.5em;font-size:16px;max-width:700px;">'
@@ -610,7 +628,6 @@ def google_maps_form():
             for w in geocode_warnings:
                 warning_html += f'<li>Row {w["row"]}: {w["location"]} ({w["city"]}, {w["state"]}, {w["zip"]}) &mdash; {w["reason"]}</li>'
             warning_html += '</ul></div>'
-        # Offer to save for hosting with map name
         return Response(f'''{warning_html}<div style="font-family:Calibri;font-size:18px;margin:2em;">Map generated! <a href="/google_map/{map_id}" target="_blank">View Map</a><br><br>
         <form method="POST" action="/host_map/{map_id}" style="display:inline;">
             <label for="map_name" style="font-size:15px;">Map Name:</label>
@@ -678,20 +695,19 @@ def delete_map(map_id):
 def serve_google_map(map_id):
     data = MAP_DATA.get(map_id)
     if not data:
-        # Try to load from disk
         path = os.path.join(HOSTED_MAPS_DIR, f"{map_id}.json")
         if os.path.isfile(path):
             with open(path, "r", encoding="utf-8") as f:
                 data = json.load(f)
         else:
             return "Error: Map not found.", 404
-    # Ensure booleans are lowercase for JS (true/false, not True/False)
     return render_template_string(
         GOOGLE_MAPS_EMBED_TEMPLATE,
         api_key=GOOGLE_MAPS_API_KEY,
         state_polygons=json.dumps(data["state_polygons"]).replace("True", "true").replace("False", "false"),
         pins=json.dumps(data["pins"]).replace("True", "true").replace("False", "false"),
-        pin_type=json.dumps(data["pin_type"])
+        pin_type=json.dumps(data["pin_type"]),
+        clustering_enabled=json.dumps(data.get("clustering_enabled", True))
     )
 
 
