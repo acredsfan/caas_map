@@ -124,9 +124,9 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
     EV/ICE Total Cost of Ownership (TCO) Parity Probability Map
   </h1>
 </div>
-<div style="display:flex;flex-direction:row;align-items:flex-start;width:100%;">
-  <div id=\"map\" style="flex:1 1 0%;min-width:0;"></div>
-  <div id=\"cluster-table-container\" style="flex:0 0 350px;max-width:350px;margin-left:24px;display:none;">
+<div style="display:flex;flex-direction:row;align-items:flex-start;width:100%;height:80vh;min-height:480px;">
+  <div id=\"map\" style="flex:1 1 0%;min-width:0;height:100%;min-height:480px;"></div>
+  <div id=\"cluster-table-container\" style="flex:0 0 350px;max-width:350px;margin-left:24px;display:none;height:100%;overflow-y:auto;">
     <h2 style="font-family:Calibri,Arial,sans-serif;font-size:1.2em;font-weight:bold;color:#00245c;text-align:left;margin:12px 0 8px 0;">Clustered Locations</h2>
     <table id=\"cluster-table\" style="width:100%;border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:1em;">
       <thead><tr><th style='text-align:left;padding:4px 8px;border-bottom:1px solid #bbb;'>Location Name</th><th style='text-align:right;padding:4px 8px;border-bottom:1px solid #bbb;'>Electrification Candidates</th></tr></thead>
