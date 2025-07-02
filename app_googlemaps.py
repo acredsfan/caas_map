@@ -120,12 +120,10 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
     </style>
 </head>
 <body>
-<div style="position:relative;z-index:10;">
-  <h1 style="font-family:Calibri,Arial,sans-serif;font-size:2.1em;font-weight:normal;color:#00245c;text-align:center;margin:24px 0 8px 0;letter-spacing:0.01em;">
-    EV/ICE Total Cost of Ownership (TCO) Parity Probability Map
-  </h1>
+<div id="title-box" style="position:absolute;top:24px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(255,255,255,0.97);border:2px solid #00245c;border-radius:10px;padding:10px 28px;box-shadow:0 2px 12px 0 rgba(0,0,0,0.10);font-family:Calibri,Arial,sans-serif;font-size:1.45em;font-weight:normal;color:#00245c;text-align:center;letter-spacing:0.01em;max-width:90vw;">
+  EV/ICE Total Cost of Ownership (TCO) Parity Probability Map
 </div>
-<div style="display:flex;flex-direction:row;align-items:flex-start;width:100%;height:80vh;min-height:480px;">
+<div style="display:flex;flex-direction:row;align-items:flex-start;width:100vw;height:80vh;min-height:480px;">
   <div id=\"map\" style="flex:1 1 0%;min-width:0;height:100%;min-height:480px;"></div>
   <div id=\"cluster-table-container\" style="flex:0 0 350px;max-width:350px;margin-left:24px;display:none;height:100%;overflow-y:auto;">
     <h2 style="font-family:Calibri,Arial,sans-serif;font-size:1.2em;font-weight:bold;color:#00245c;text-align:left;margin:12px 0 8px 0;">Clustered Locations</h2>
@@ -142,7 +140,7 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
   <div><span class=\"legend-color\" style=\"background:rgba(161,208,243,0.75)\"></span>Group 3 (Good Parity Probability)</div>
 </div>
 <script src="https://maps.googleapis.com/maps/api/js?key={{api_key}}"></script>
-<script src="https://unpkg.com/@googlemaps/markerclustererplus/dist/index.min.js"></script>
+<script src="https://unpkg.com/@googlemaps/markerclusterer/dist/index.min.js"></script>
 <script>
 const statePolygons = {{ state_polygons|safe }};
 let pins = {{ pins|safe }};
@@ -250,20 +248,16 @@ function initMap() {
     markers.push(marker);
   });
   if (clusteringEnabled) {
+    // Use MarkerClusterer from @googlemaps/markerclusterer
     const clusterer = new markerClusterer.MarkerClusterer({
-      map,
-      markers,
-      onClusterClick: (event) => {
-        // Not used, but could zoom to cluster
-      }
+      map: map,
+      markers: markers
     });
-    // Build cluster table
+    // Build cluster table (list all pins, since JS clustering API does not expose cluster membership directly)
     const clusterTableContainer = document.getElementById('cluster-table-container');
     clusterTableContainer.style.display = '';
     const tableBody = document.getElementById('cluster-table').querySelector('tbody');
     tableBody.innerHTML = '';
-    // For each cluster, list locations and candidates
-    // markerClusterer does not expose clusters directly, so we list all pins
     pins.forEach(function(pin) {
       const row = document.createElement('tr');
       const nameCell = document.createElement('td');
