@@ -19,19 +19,22 @@ except ImportError:  # pragma: no cover - Shapely < 2.1
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
+# --- FIX: Define a base directory to make all file paths absolute ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+
 app = Flask(__name__)
 app.config['SERVER_NAME'] = 'caas-map-old.link-smart-home.com'
 app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 
 # Directories
-os.makedirs("static/maps", exist_ok=True)
-os.makedirs("static/img", exist_ok=True)
+os.makedirs(os.path.join(basedir, "static", "maps"), exist_ok=True)
+os.makedirs(os.path.join(basedir, "static", "img"), exist_ok=True)
 
 # Preload groups & shapefile
-state_groups = pd.read_csv(r"./input_csv_files/group_by_state.csv")
+state_groups = pd.read_csv(os.path.join(basedir, "input_csv_files", "group_by_state.csv"))
 us_states = gpd.read_file(
-    r"./us_state_boundary_shapefiles/ne_10m_admin_1_states_provinces_lakes.shp"
+    os.path.join(basedir, "us_state_boundary_shapefiles", "ne_10m_admin_1_states_provinces_lakes.shp")
 )
 us_states = us_states[us_states["admin"] == "United States of America"]
 us_states["StateAbbr"] = us_states["iso_3166_2"].str.split("-").str[-1]
@@ -60,7 +63,6 @@ def load_and_inject_svg(svg_path, number_value):
 
 
 # Pin definitions
-# --- FIX: Wrap this block in an app.app_context() to allow url_for() to run at startup ---
 with app.app_context():
     PIN_TYPES = {
         "primary_dark_blue_sphere": {
@@ -453,7 +455,7 @@ def upload_form():
                     <div class='custom-label-text'>{row['Location Name']}</div>
                 """
                 if numbered_pin:
-                    svg_path = os.path.join('static', 'img', os.path.basename(local_pin_url))
+                    svg_path = os.path.join(basedir, 'static', 'img', os.path.basename(local_pin_url))
                     injected_svg = load_and_inject_svg(svg_path, row['Electrification Candidates'])
                     icon = folium.DivIcon(
                         html=injected_svg,
@@ -549,12 +551,13 @@ def upload_form():
         # Save new map, remove old
         unique_id = str(uuid.uuid4())
         output_filename = f"{unique_id}.html"
-        map_path = os.path.join("static", "maps", output_filename)
+        map_path = os.path.join(basedir, "static", "maps", output_filename)
         m.save(map_path)
 
         # Remove older .html
-        for old_file in os.listdir("static/maps"):
-            full_path = os.path.join("static", "maps", old_file)
+        maps_dir = os.path.join(basedir, "static", "maps")
+        for old_file in os.listdir(maps_dir):
+            full_path = os.path.join(maps_dir, old_file)
             if old_file.endswith(".html") and old_file != output_filename:
                 os.remove(full_path)
 
@@ -564,12 +567,13 @@ def upload_form():
 
 @app.route("/map/<map_id>")
 def serve_map(map_id):
-    return send_from_directory("static/maps", f"{map_id}.html")
+    return send_from_directory(os.path.join(basedir, "static", "maps"), f"{map_id}.html")
 
 
 @app.route("/ppt/<map_id>")
 def download_ppt(map_id):
-    html_path = os.path.join("static", "maps", f"{map_id}.html")
+    maps_dir = os.path.join(basedir, "static", "maps")
+    html_path = os.path.join(maps_dir, f"{map_id}.html")
     if not os.path.isfile(html_path):
         return "Error: Map not found.", 404
 
@@ -602,17 +606,17 @@ def download_ppt(map_id):
         run.hyperlink.address = link
 
     ppt_filename = f"{map_id}.pptx"
-    ppt_path = os.path.join("static", "maps", ppt_filename)
+    ppt_path = os.path.join(maps_dir, ppt_filename)
     prs.save(ppt_path)
-    return send_from_directory("static", "maps", ppt_filename, as_attachment=True)
+    return send_from_directory(maps_dir, ppt_filename, as_attachment=True)
 
 
 @app.route("/download_template")
 def download_template():
-    template_path = "location_pins_template.xlsx"
+    template_path = os.path.join(basedir, "location_pins_template.xlsx")
     if not os.path.isfile(template_path):
         return "Error: location_pins_template.xlsx not found.", 404
-    return send_from_directory(".", "location_pins_template.xlsx", as_attachment=True)
+    return send_from_directory(basedir, "location_pins_template.xlsx", as_attachment=True)
 
 
 if __name__ == "__main__":
