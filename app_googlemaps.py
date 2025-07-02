@@ -101,6 +101,7 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
         position: relative;
         left: 32px;
         bottom: 40px;
+        width: 200px;
         z-index: 5;
         font-size: 16.5px;
         margin-left: 0;
