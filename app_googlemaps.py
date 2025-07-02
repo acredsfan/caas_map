@@ -129,7 +129,14 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
 <script src="https://maps.googleapis.com/maps/api/js?key={{api_key}}"></script>
 <script>
 const statePolygons = {{ state_polygons|safe }};
-const pins = {{ pins|safe }};
+let pins = {{ pins|safe }};
+// Use info_label for info window content
+pins = pins.map(function(pin) {
+  if (typeof pin.info_label === 'undefined' && typeof pin.label !== 'undefined') {
+    pin.info_label = pin.label;
+  }
+  return pin;
+});
 const pinType = {{ pin_type|tojson }};
 
 // Per-pin-type anchor and labelOrigin offsets (pixels from top-left of image)
@@ -191,13 +198,14 @@ function initMap() {
     polygon.setMap(map);
   });
   // Add pins directly to the map (no clustering)
+    const infoWindow = new google.maps.InfoWindow();
     pins.forEach(function(pin) {
-      let icon, iconSize, anchorX, anchorY, labelOriginY;
+      let icon, iconSize, anchorX, anchorY, labelOriginY, markerLabel = null;
+      let labelText = pin.info_label || pin.label || '';
       if (pin.numbered && pin.svg_data) {
         iconSize = {w:65, h:82};
         anchorX = 32;
         anchorY = 41;
-        // Place label below the pin: y = icon height - 20px
         labelOriginY = iconSize.h - 20;
         icon = {
           url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pin.svg_data),
@@ -209,7 +217,6 @@ function initMap() {
         iconSize = {w:50, h:50};
         anchorX = 25;
         anchorY = 50;
-        // Place label below the pin: y = icon height + 1px
         labelOriginY = iconSize.h + 1;
         icon = {
           url: pin.icon_url,
@@ -218,17 +225,20 @@ function initMap() {
           labelOrigin: new google.maps.Point(iconSize.w/2, labelOriginY)
         };
       }
-      new google.maps.Marker({
+      markerLabel = {
+        text: labelText,
+        color: '#222',
+        fontWeight: 'bold',
+        fontSize: '13px',
+        fontFamily: 'Calibri, Arial, sans-serif',
+        // Simulate white outline using text-shadow (not officially supported, but some browsers render it)
+        textShadow: '0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff, 0 0 2px #fff'
+      };
+      const marker = new google.maps.Marker({
         position: {lat: pin.lat, lng: pin.lng},
         icon: icon,
-        title: pin.label,
-        label: {
-          text: pin.label,
-          color: '#000',
-          fontWeight: 'bold',
-          fontSize: '16px',
-          fontFamily: 'Calibri, Arial, sans-serif'
-        },
+        title: labelText,
+        label: markerLabel,
         map: map
       });
     });
@@ -551,11 +561,13 @@ def google_maps_form():
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                label = row["Location Name"] if show_location_label else ''
+                # Always show Location Name as label for all pins
+                label = str(row["Location Name"])
                 pin = {
                     "lat": lat,
                     "lng": lon,
                     "label": label,
+                    "info_label": label,
                     "icon_url": local_pin_url,
                     "numbered": numbered_pin,
                     "svg_data": None

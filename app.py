@@ -8,6 +8,8 @@ from pptx.util import Inches
 import pandas as pd
 import geopandas as gpd
 import folium
+# --- CHANGE: Import MarkerCluster ---
+from folium.plugins import MarkerCluster
 
 # `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
 # back to `unary_union` for older versions so the code runs regardless of the
@@ -445,12 +447,15 @@ def upload_form():
 
         df["Latitude"] = lat_list
         df["Longitude"] = lon_list
+        
+        # --- CHANGE: Create a MarkerCluster layer ---
+        marker_cluster = MarkerCluster().add_to(m)
 
         # Add markers and labels directly to the map in Python
         for _, row in df.iterrows():
             lat, lon = row["Latitude"], row["Longitude"]
             if pd.notnull(lat) and pd.notnull(lon):
-                # Build label text (no border, no box-shadow, centered below pin, no background)
+                # Build label text
                 label_html = f"""
                     <div class='custom-label-text'>{row['Location Name']}</div>
                 """
@@ -478,17 +483,18 @@ def upload_form():
                         label_html,
                         permanent=True,
                         sticky=False,
-                        direction='top',  # Place label above pin
-                        offset=[0, -5],   # Move label closer to pin tip
+                        direction='bottom',
+                        offset=[0, 5],
                         class_name='always-visible-label'
                     )
                 )
-                marker.add_to(m)
+                # --- CHANGE: Add the marker to the cluster layer instead of the map ---
+                marker.add_to(marker_cluster)
 
         # Label styling
         label_style = """
         <style>
-        /* Remove background, border, and box-shadow from always-visible-label tooltips */
+        /* Remove default background/border from the tooltip container */
         .leaflet-tooltip.always-visible-label {
             background: none !important;
             border: none !important;
@@ -501,9 +507,10 @@ def upload_form():
         .leaflet-tooltip.always-visible-label:after {
             display: none !important;
         }
-        /* Custom label text: rounded, no border, no box, centered, no background */
+        /* Style the custom label text as a rounded box */
         .custom-label-text {
-            background: none !important;
+            background: white !important;
+            border: 1px solid #ccc !important;
             border-radius: 8px;
             font-size: 14px;
             font-family: 'Calibri', sans-serif;
@@ -511,10 +518,9 @@ def upload_form():
             color: #000;
             text-align: center;
             white-space: nowrap;
-            padding: 2px 8px 2px 8px;
+            padding: 4px 10px;
             margin: 0 auto;
-            border: none;
-            box-shadow: none;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
             display: inline-block;
         }
         .custom-numbered-pin {
