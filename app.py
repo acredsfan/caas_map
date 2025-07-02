@@ -20,7 +20,7 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
 app = Flask(__name__)
-app.config["SERVER_NAME"] = "localhost:5050"
+# app.config["SERVER_NAME"] = "localhost:5050"
 app.app_context().push()
 
 # Directories
