@@ -98,7 +98,7 @@ GOOGLE_MAPS_EMBED_TEMPLATE = """
         padding: 16px 20px 16px 20px;
         border: 2px solid #888;
         border-radius: 10px;
-        position: absolute;
+        position: relative;
         left: 32px;
         bottom: 40px;
         z-index: 5;
