@@ -60,58 +60,60 @@ def load_and_inject_svg(svg_path, number_value):
 
 
 # Pin definitions
-PIN_TYPES = {
-    "primary_dark_blue_sphere": {
-        "url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"),
-        "numbered": False,
-        "label": "Location Name - Candidates",
-    },
-    "primary_dark_blue_number": {
-        "url": url_for("static", filename="img/number_pin_primary_dark_blue.svg"),
-        "numbered": True,
-        "label": "Location Name",
-    },
-    "primary_light_blue_sphere": {
-        "url": url_for("static", filename="img/sphere_pin_primary_light_blue.svg"),
-        "numbered": False,
-        "label": "Location Name - Candidates",
-    },
-    "primary_light_blue_number": {
-        "url": url_for("static", filename="img/number_pin_primary_light_blue.svg"),
-        "numbered": True,
-        "label": "Location Name",
-    },
-    "green_sphere": {
-        "url": url_for("static", filename="img/sphere_pin_green.svg"),
-        "numbered": False,
-        "label": "Location Name - Candidates",
-    },
-    "green_number": {
-        "url": url_for("static", filename="img/number_pin_green.svg"),
-        "numbered": True,
-        "label": "Location Name",
-    },
-    "secondary_dark_blue_sphere": {
-        "url": url_for("static", filename="img/sphere_pin_secondary_dark_blue.svg"),
-        "numbered": False,
-        "label": "Location Name - Candidates",
-    },
-    "secondary_dark_blue_number": {
-        "url": url_for("static", filename="img/number_pin_secondary_dark_blue.svg"),
-        "numbered": True,
-        "label": "Location Name",
-    },
-    "teal_sphere": {
-        "url": url_for("static", filename="img/sphere_pin_teal.svg"),
-        "numbered": False,
-        "label": "Location Name - Candidates",
-    },
-    "teal_number": {
-        "url": url_for("static", filename="img/number_pin_teal.svg"),
-        "numbered": True,
-        "label": "Location Name",
-    },
-}
+# --- FIX: Wrap this block in an app.app_context() to allow url_for() to run at startup ---
+with app.app_context():
+    PIN_TYPES = {
+        "primary_dark_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "primary_dark_blue_number": {
+            "url": url_for("static", filename="img/number_pin_primary_dark_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "primary_light_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_primary_light_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "primary_light_blue_number": {
+            "url": url_for("static", filename="img/number_pin_primary_light_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "green_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_green.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "green_number": {
+            "url": url_for("static", filename="img/number_pin_green.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "secondary_dark_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_secondary_dark_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "secondary_dark_blue_number": {
+            "url": url_for("static", filename="img/number_pin_secondary_dark_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "teal_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_teal.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "teal_number": {
+            "url": url_for("static", filename="img/number_pin_teal.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+    }
 
 # Nicer form template with updated styling
 FORM_TEMPLATE = """
@@ -602,7 +604,7 @@ def download_ppt(map_id):
     ppt_filename = f"{map_id}.pptx"
     ppt_path = os.path.join("static", "maps", ppt_filename)
     prs.save(ppt_path)
-    return send_from_directory("static/maps", ppt_filename, as_attachment=True)
+    return send_from_directory("static", "maps", ppt_filename, as_attachment=True)
 
 
 @app.route("/download_template")
