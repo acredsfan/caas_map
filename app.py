@@ -1,7 +1,6 @@
 import os
 import io
 import uuid
-import json
 from flask import Flask, request, send_from_directory, url_for, render_template_string, send_file
 from pptx import Presentation
 from pptx.util import Inches
@@ -9,15 +8,20 @@ from pptx.util import Inches
 import pandas as pd
 import geopandas as gpd
 import folium
+# --- CHANGE: Import MarkerCluster ---
 from folium.plugins import MarkerCluster
 
+# `unary_union` is deprecated in Shapely 2.1 in favor of `union_all`.  Fall
+# back to `unary_union` for older versions so the code runs regardless of the
+# installed Shapely release.
 try:
     from shapely import union_all
-except ImportError:
+except ImportError:  # pragma: no cover - Shapely < 2.1
     from shapely.ops import unary_union as union_all
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 
+# --- FIX: Define a base directory to make all file paths absolute ---
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
@@ -26,10 +30,12 @@ app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')
 
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+# Directories
 os.makedirs(os.path.join(basedir, "static", "maps"), exist_ok=True)
 os.makedirs(os.path.join(basedir, "static", "img"), exist_ok=True)
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Preload groups & shapefile
 state_groups = pd.read_csv(os.path.join(basedir, "input_csv_files", "group_by_state.csv"))
 us_states = gpd.read_file(
     os.path.join(basedir, "us_state_boundary_shapefiles", "ne_10m_admin_1_states_provinces_lakes.shp")
@@ -42,69 +48,213 @@ us_states = us_states.merge(
 
 GROUP_COLORS = {"Group 1": "#0056b8", "Group 2": "#00a1e0", "Group 3": "#a1d0f3"}
 
+# --- NEW: Helper function to convert hex to rgba for table row coloring ---
 def hex_to_rgba(hex_color, alpha=0.2):
     if pd.isna(hex_color):
-        return 'rgba(255, 255, 255, 0)'
+        return 'rgba(255, 255, 255, 0)' # Return transparent if color is missing
     hex_color = hex_color.lstrip('#')
     r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
     return f'rgba({r}, {g}, {b}, {alpha})'
 
+# ------------------------------------------
+# Helper function to load an SVG and inject the row's candidate number
+# ------------------------------------------
 def load_and_inject_svg(svg_path, number_value):
     with open(svg_path, "r", encoding="utf-8") as f:
         svg_content = f.read()
+    # Replace the placeholder {{NUMBER}} with the actual numeric value
     svg_content = svg_content.replace("{{NUMBER}}", str(number_value))
     return svg_content
 
+
+# Pin definitions
 with app.app_context():
     PIN_TYPES = {
-        "primary_dark_blue_sphere": {"url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"), "numbered": False},
-        "primary_dark_blue_number": {"url": url_for("static", filename="img/number_pin_primary_dark_blue.svg"), "numbered": True},
-        "primary_light_blue_sphere": {"url": url_for("static", filename="img/sphere_pin_primary_light_blue.svg"), "numbered": False},
-        "primary_light_blue_number": {"url": url_for("static", filename="img/number_pin_primary_light_blue.svg"), "numbered": True},
-        "green_sphere": {"url": url_for("static", filename="img/sphere_pin_green.svg"), "numbered": False},
-        "green_number": {"url": url_for("static", filename="img/number_pin_green.svg"), "numbered": True},
-        "secondary_dark_blue_sphere": {"url": url_for("static", filename="img/sphere_pin_secondary_dark_blue.svg"), "numbered": False},
-        "secondary_dark_blue_number": {"url": url_for("static", filename="img/number_pin_secondary_dark_blue.svg"), "numbered": True},
-        "teal_sphere": {"url": url_for("static", filename="img/sphere_pin_teal.svg"), "numbered": False},
-        "teal_number": {"url": url_for("static", filename="img/number_pin_teal.svg"), "numbered": True},
+        "primary_dark_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "primary_dark_blue_number": {
+            "url": url_for("static", filename="img/number_pin_primary_dark_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "primary_light_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_primary_light_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "primary_light_blue_number": {
+            "url": url_for("static", filename="img/number_pin_primary_light_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "green_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_green.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "green_number": {
+            "url": url_for("static", filename="img/number_pin_green.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "secondary_dark_blue_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_secondary_dark_blue.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "secondary_dark_blue_number": {
+            "url": url_for("static", filename="img/number_pin_secondary_dark_blue.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
+        "teal_sphere": {
+            "url": url_for("static", filename="img/sphere_pin_teal.svg"),
+            "numbered": False,
+            "label": "Location Name - Candidates",
+        },
+        "teal_number": {
+            "url": url_for("static", filename="img/number_pin_teal.svg"),
+            "numbered": True,
+            "label": "Location Name",
+        },
     }
 
+# Nicer form template with updated styling
 UPLOAD_FORM_TEMPLATE = """
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Map Uploader - Step 1</title>
+    <title>Map Uploader</title>
     <style>
-      body { font-family: Calibri, sans-serif; background: #f4f7fa; margin: 0; padding: 0; }
-      .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); padding: 20px 30px; }
-      h1 { margin-top: 0; color: #333; }
-      label { font-weight: bold; }
-      button { background: #0056b8; color: #fff; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
-      button:hover { background: #004494; }
-      a { color: #0056b8; text-decoration: none; margin-left: 8px; }
-      a:hover { text-decoration: underline; }
-      .footer-links { margin-top: 10px; }
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: Calibri, sans-serif;
+        background: #f4f7fa; /* Soft page background */
+      }
+      .container {
+        max-width: 800px;
+        margin: 40px auto;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+        padding: 20px 30px;
+      }
+      h1 {
+        margin-top: 0;
+        color: #333;
+      }
+      label {
+        font-weight: bold;
+      }
+      .pin-selection {
+        display: flex;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        gap: 10px;
+      }
+      .pin-option {
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+        border: 2px solid transparent;
+        border-radius: 5px;
+        padding: 5px;
+      }
+      .pin-option:hover {
+        background: #f0f4f8;
+        transform: translateY(-2px);
+      }
+      .selected-pin {
+        border-color: #00a1e0; /* highlight border color when selected */
+        background: #e8f6fe;
+      }
+      .pin-image {
+        width: 40px;
+        margin-bottom: 5px;
+      }
+      button {
+        background: #0056b8;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 10px 16px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button:hover {
+        background: #004494;
+      }
+      a {
+        color: #0056b8;
+        text-decoration: none;
+        margin-left: 8px;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .footer-links {
+        margin-top: 10px;
+      }
+      .options {
+        margin-top: 20px;
+        margin-bottom: 20px;
+      }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>Step 1: Upload Your Location Data</h1>
-    <p><strong>Required columns:</strong> Location Name, ZIP/Postal Code, Electrification Candidates, Category Name</p>
+    <h1>Upload CSV/XLS/XLSX to Plot Pins</h1>
+    <p><strong>Required columns:</strong> Location Name, ZIP/Postal Code, Electrification Candidates</p>
+    <p><strong>Optional columns:</strong> Street Address, City, State</p>
     <p><strong>Accepted file types:</strong> .csv, .xls, .xlsx</p>
-    <form action="/assign_pins" method="POST" enctype="multipart/form-data">
+
+    <form method="POST" enctype="multipart/form-data">
       <label>Choose File:</label><br>
       <input type="file" name="file" accept=".csv,.xls,.xlsx" required/><br><br>
-      <label>
+
+      <label>Select Pin Type:</label>
+      <div class="pin-selection" id="pinSelectionContainer"></div>
+      <input type="hidden" name="pin_type" id="selected_pin_type" required>
+
+      <div class="options">
+        <label>
           <input type="checkbox" name="cluster_pins" value="true" checked> Cluster Pins
-      </label>
-      <br><br>
-      <button type="submit">Upload & Assign Pins</button>
+        </label>
+      </div>
+
+      <button type="submit">Upload & Generate Map</button>
       <div class="footer-links">
         <a href="/download_template" download="location_pins_template.xlsx">Download Excel Template</a>
       </div>
     </form>
 </div>
+
+<script>
+  const pinTypes = {{ pin_types|tojson }};
+  
+  function updatePreview(index) {
+      const selectEl = document.getElementById('select_' + index);
+      const previewEl = document.getElementById('preview_' + index);
+      const selectedPinKey = selectEl.value;
+      if (pinData[selectedPinKey]) {
+          previewEl.src = pinData[selectedPinKey].url;
+      }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+      const selects = document.querySelectorAll('select[id^="select_"]');
+      selects.forEach((select, i) => {
+          updatePreview(i + 1);
+      });
+  });
+</script>
 </body>
 </html>
 """
@@ -125,6 +275,7 @@ PIN_ASSIGNMENT_TEMPLATE = """
       .category-row { display: flex; align-items: center; margin-bottom: 15px; }
       .category-name { width: 250px; font-weight: bold; }
       select { padding: 5px; border-radius: 4px; }
+      .pin-preview { width: 40px; height: 40px; margin-left: 15px; object-fit: contain; }
     </style>
 </head>
 <body>
@@ -137,20 +288,41 @@ PIN_ASSIGNMENT_TEMPLATE = """
       {% for category in categories %}
       <div class="category-row">
         <div class="category-name">{{ category }}</div>
-        <select name="pin_map_{{ category }}" required>
+        <select name="pin_map_{{ category }}" id="select_{{ loop.index }}" onchange="updatePreview({{ loop.index }})" required>
           {% for pin_key, pin_data in pin_types.items() %}
           <option value="{{ pin_key }}">{{ pin_key.replace('_', ' ')|title }}</option>
           {% endfor %}
         </select>
+        <img id="preview_{{ loop.index }}" src="" class="pin-preview">
       </div>
       {% endfor %}
       <br>
       <button type="submit">Generate Map</button>
     </form>
 </div>
+<script>
+    const pinData = {{ pin_types|tojson }};
+    
+    function updatePreview(index) {
+        const selectEl = document.getElementById('select_' + index);
+        const previewEl = document.getElementById('preview_' + index);
+        const selectedPinKey = selectEl.value;
+        if (pinData[selectedPinKey]) {
+            previewEl.src = pinData[selectedPinKey].url;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const selects = document.querySelectorAll('select[id^="select_"]');
+        selects.forEach((select, i) => {
+            updatePreview(i + 1);
+        });
+    });
+</script>
 </body>
 </html>
 """
+
 
 @app.route("/", methods=["GET"])
 def upload_form():
@@ -158,36 +330,41 @@ def upload_form():
 
 @app.route("/assign_pins", methods=["POST"])
 def assign_pins():
-    uploaded_file = request.files.get("file")
-    if not uploaded_file or not uploaded_file.filename:
-        return "Error: No file selected.", 400
-    
-    filename = f"{uuid.uuid4()}_{uploaded_file.filename}"
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    uploaded_file.save(filepath)
-
     try:
-        if filename.lower().endswith((".xls", ".xlsx")):
-            df = pd.read_excel(filepath)
-        else:
-            df = pd.read_csv(filepath)
+        uploaded_file = request.files.get("file")
+        if not uploaded_file or not uploaded_file.filename:
+            return "Error: No file selected.", 400
+        
+        # Use a unique filename to prevent conflicts
+        filename = f"{uuid.uuid4()}_{uploaded_file.filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        uploaded_file.save(filepath)
+
+        try:
+            if filename.lower().endswith((".xls", ".xlsx")):
+                df = pd.read_excel(filepath)
+            else:
+                df = pd.read_csv(filepath)
+        except Exception as e:
+            return f"Error reading file: {e}", 400
+
+        required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates", "Category Name"}
+        if not required_cols.issubset(df.columns):
+            return f"Error: Missing required columns. Your file must contain: {', '.join(required_cols)}", 400
+        
+        df['Category Name'] = df['Category Name'].astype(str).fillna('Uncategorized')
+        categories = sorted(df['Category Name'].unique())
+
+        return render_template_string(
+            PIN_ASSIGNMENT_TEMPLATE, 
+            filename=filename, 
+            categories=categories, 
+            pin_types=PIN_TYPES,
+            cluster_pins=str(request.form.get("cluster_pins") == "true").lower()
+        )
     except Exception as e:
-        return f"Error reading file: {e}", 400
-
-    required_cols = {"Location Name", "ZIP/Postal Code", "Electrification Candidates", "Category Name"}
-    if not required_cols.issubset(df.columns):
-        return f"Error: Missing required columns. Your file must contain: {', '.join(required_cols)}", 400
-    
-    df['Category Name'] = df['Category Name'].astype(str).fillna('Uncategorized')
-    categories = sorted(df['Category Name'].unique())
-
-    return render_template_string(
-        PIN_ASSIGNMENT_TEMPLATE, 
-        filename=filename, 
-        categories=categories, 
-        pin_types=PIN_TYPES,
-        cluster_pins=str(request.form.get("cluster_pins") == "true").lower()
-    )
+        app.logger.error(f"An unhandled exception occurred in /assign_pins: {e}", exc_info=True)
+        return f"An internal server error occurred. Please check the server logs. Error: {e}", 500
 
 @app.route("/generate_map", methods=["POST"])
 def generate_map():
@@ -333,18 +510,41 @@ def generate_map():
         """
         m.get_root().html.add_child(folium.Element(table_html))
 
-    legend_html = '<div style="position: fixed; bottom: 10px; left: 10px; width:auto; background-color: white; border:2px solid grey; z-index:9999; border-radius:5px; padding: 10px; font-family: Calibri;">'
-    legend_html += '<h4 style="margin-top:0; margin-bottom:10px;">Pin Legend</h4>'
+    # --- State Group Legend ---
+    state_legend_html = """
+    <div style="position: fixed; bottom: 10px; left: 10px; width:auto; height:auto;
+    background-color: white; border:2px solid grey; z-index:9999; border-radius:5px;
+    padding: 10px; font-family: Calibri;">
+      <h4 style="margin-top:0; margin-bottom: 10px; font-weight: bold; text-align: center;">State Grouping</h4>
+      <div style="margin-bottom:5px; display: flex; align-items: center;">
+        <i style="background:#0056b8;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+        Group 1
+      </div>
+      <div style="margin-bottom:5px; display: flex; align-items: center;">
+        <i style="background:#00a1e0;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+        Group 2
+      </div>
+      <div style="display: flex; align-items: center;">
+        <i style="background:#a1d0f3;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
+        Group 3
+      </div>
+    </div>
+    """
+    m.get_root().html.add_child(folium.Element(state_legend_html))
+
+    # --- Pin Legend ---
+    pin_legend_html = '<div class="pin-legend-container">'
+    pin_legend_html += '<h4 style="margin-top:0; margin-bottom:10px; text-align:center;">Pin Legend</h4><div class="pin-legend-items">'
     for category, pin_url in sorted(legend_items.items()):
-        legend_html += f'<div style="display: flex; align-items: center; margin-bottom: 5px;"><img src="{pin_url}" style="width:25px; height:25px; margin-right:8px;"> {category}</div>'
-    legend_html += '</div>'
-    m.get_root().html.add_child(folium.Element(legend_html))
+        pin_legend_html += f'<div class="pin-legend-item"><img src="{pin_url}" class="pin-legend-icon"> {category}</div>'
+    pin_legend_html += '</div></div>'
+    m.get_root().html.add_child(folium.Element(pin_legend_html))
 
     styles = """
     <style>
     .div-icon-container { position: relative; text-align: center; }
     .pin-image-wrapper { position: relative; display: inline-block; }
-    .custom-label-text { background: white !important; border: 1px solid #ccc !important; border-radius: 8px; font-size: 14px; font-family: 'Calibri', sans-serif; font-weight: normal; color: #000; text-align: center; white-space: nowrap; padding: 4px 10px; margin-top: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); display: inline-block; }
+    .custom-label-text { background: white !important; border: 1px solid #ccc !important; border-radius: 8px; font-size: 14px; font-family: 'Calibri', sans-serif; font-weight: bold; color: #000; text-align: center; white-space: nowrap; padding: 4px 10px; margin-top: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); display: inline-block; }
     .sphere-pin { width: 50px; height: 50px; }
     .group1-state { filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); -webkit-filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); }
     .marker-cluster-small { background-color: rgba(107, 192, 75, 0.8); }
@@ -355,6 +555,10 @@ def generate_map():
     .marker-cluster-large div { background-color: rgba(0, 86, 184, 1); }
     .marker-cluster { color: #fff; border-radius: 50%; text-align: center; font-weight: bold; font-family: Calibri, sans-serif; }
     .marker-cluster div { width: 30px; height: 30px; margin-left: 5px; margin-top: 5px; border-radius: 50%; line-height: 30px; }
+    .pin-legend-container { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); background-color: white; border: 2px solid grey; z-index: 9999; border-radius: 5px; padding: 10px; font-family: Calibri; }
+    .pin-legend-items { display: flex; flex-direction: row; justify-content: center; align-items: center; }
+    .pin-legend-item { display: flex; align-items: center; margin: 0 15px; }
+    .pin-legend-icon { width: 25px; height: 25px; margin-right: 8px; }
     </style>
     """
     m.get_root().add_child(folium.Element(styles))
@@ -378,26 +582,11 @@ def generate_map():
     link = url_for("serve_map", map_id=unique_id, _external=True)
     return f"Map generated! <a href='{link}' target='_blank'>View Map</a>"
 
+
 @app.route("/map/<map_id>")
 def serve_map(map_id):
     return send_from_directory(os.path.join(basedir, "static", "maps"), f"{map_id}.html")
 
-@app.route("/download_template")
-def download_template():
-    df = pd.DataFrame({
-        "Location Name": ["Example A", "Example B"],
-        "Street Address": ["123 Main St", ""],
-        "City": ["Anytown", ""],
-        "State": ["CA", "TX"],
-        "ZIP/Postal Code": ["12345", "67890"],
-        "Electrification Candidates": [10, 5],
-        "Category Name": ["Retail", "Warehouse"],
-    })
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='locations')
-    output.seek(0)
-    return send_file(output, download_name="location_pins_template.xlsx", as_attachment=True)
 
 @app.route("/ppt/<map_id>")
 def download_ppt(map_id):
@@ -434,6 +623,24 @@ def download_ppt(map_id):
     ppt_path = os.path.join(maps_dir, ppt_filename)
     prs.save(ppt_path)
     return send_from_directory(maps_dir, ppt_filename, as_attachment=True)
+
+
+@app.route("/download_template")
+def download_template():
+    df = pd.DataFrame({
+        "Location Name": ["Example A", "Example B"],
+        "Street Address": ["123 Main St", ""],
+        "City": ["Anytown", ""],
+        "State": ["CA", "TX"],
+        "ZIP/Postal Code": ["12345", "67890"],
+        "Electrification Candidates": [10, 5],
+        "Category Name": ["Retail", "Warehouse"],
+    })
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='locations')
+    output.seek(0)
+    return send_file(output, download_name="location_pins_template.xlsx", as_attachment=True)
 
 
 if __name__ == "__main__":
