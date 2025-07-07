@@ -28,12 +28,11 @@
         }
         #state-group-legend {
             bottom: 20px;
-            left: 20px;
+            left: 160px;
         }
         #pin-category-legend {
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
+            top: 20px;
+            right: 350px;
         }
         .table-container {
             position: fixed;
@@ -58,13 +57,35 @@
             width: 100%;
             border-collapse: collapse;
         }
-        .table-container th, .table-container td {
+        .table-container th,        .table-container td {
             padding: 4px;
             border-bottom: 1px solid #ddd;
+        }
+        .start-over-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: #0056b8;
+            color: white;
+            padding: 10px 16px;
+            border: none;
+            border-radius: 4px;
+            text-decoration: none;
+            font-family: Calibri;
+            font-size: 14px;
+            z-index: 10002;
+            cursor: pointer;
+        }
+        .start-over-btn:hover {
+            background: #004494;
+        }
+        .start-over-btn:visited {
+            color: white;
         }
     </style>
 </head>
 <body>
+    <a href="/" class="start-over-btn">Start Over</a>
     <div class="map-container">
         {{ map_html|safe }}
     </div>
@@ -84,11 +105,12 @@
         </div>
     </div>
     <div id="pin-category-legend" class="legend">
+        <div style="font-weight: bold; margin-bottom: 8px;">Pin Categories</div>
         {% for category, pin_url in legend_items.items() %}
-        <span style="display: flex; align-items: center; margin-right: 18px;">
+        <div style="display: flex; align-items: center; margin-bottom: 6px;">
             <img src="{{ pin_url }}" style="width:22px;height:22px;margin-right:6px;">
             <span>{{ category }}</span>
-        </span>
+        </div>
         {% endfor %}
     </div>
     <div class="table-container">

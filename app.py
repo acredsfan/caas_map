@@ -215,13 +215,9 @@ UPLOAD_FORM_TEMPLATE = """
     <p><strong>Optional columns:</strong> Street Address, City, State</p>
     <p><strong>Accepted file types:</strong> .csv, .xls, .xlsx</p>
 
-    <form method="POST" enctype="multipart/form-data">
+    <form action="/assign_pins" method="POST" enctype="multipart/form-data">
       <label>Choose File:</label><br>
       <input type="file" name="file" accept=".csv,.xls,.xlsx" required/><br><br>
-
-      <label>Select Pin Type:</label>
-      <div class="pin-selection" id="pinSelectionContainer"></div>
-      <input type="hidden" name="pin_type" id="selected_pin_type" required>
 
       <div class="options">
         <label>
@@ -235,26 +231,6 @@ UPLOAD_FORM_TEMPLATE = """
       </div>
     </form>
 </div>
-
-<script>
-  const pinTypes = {{ pin_types|tojson }};
-  
-  function updatePreview(index) {
-      const selectEl = document.getElementById('select_' + index);
-      const previewEl = document.getElementById('preview_' + index);
-      const selectedPinKey = selectEl.value;
-      if (pinData[selectedPinKey]) {
-          previewEl.src = pinData[selectedPinKey].url;
-      }
-  }
-
-  document.addEventListener('DOMContentLoaded', function() {
-      const selects = document.querySelectorAll('select[id^="select_"]');
-      selects.forEach((select, i) => {
-          updatePreview(i + 1);
-      });
-  });
-</script>
 </body>
 </html>
 """
@@ -276,7 +252,34 @@ PIN_ASSIGNMENT_TEMPLATE = """
       .category-name { width: 250px; font-weight: bold; }
       select { padding: 5px; border-radius: 4px; }
       .pin-preview { width: 40px; height: 40px; margin-left: 15px; object-fit: contain; }
-      .pin-style-preview { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+      .pin-style-preview { 
+        display: flex; 
+        flex-wrap: wrap; 
+        align-items: center; 
+        gap: 15px; 
+        margin-top: 20px; 
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+      }
+      .pin-style-preview > div {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        min-width: 80px;
+      }
+      .pin-style-preview img {
+        width: 30px;
+        height: 30px;
+        margin-bottom: 5px;
+      }
+      .pin-style-preview div div {
+        font-size: 11px;
+        line-height: 1.2;
+      }
     </style>
 </head>
 <body>
