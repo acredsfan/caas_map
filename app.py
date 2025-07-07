@@ -539,7 +539,10 @@ def generate_map():
         """
         m.get_root().add_child(folium.Element(table_html))
 
-    # --- Legends ---
+    # --- Legend Injection via Javascript ---
+    # This script waits for the map to load and then injects the legends,
+    # ensuring they appear correctly and on top of other elements.
+    
     state_legend_html = """
     <div id='state-group-legend' style='position: fixed; bottom: 20px; left: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 12px 18px; z-index: 10001; font-family: Calibri;'>
       <div style='font-weight: bold; margin-bottom: 8px;'>State Grouping Color Guide</div>
@@ -556,15 +559,38 @@ def generate_map():
         Group 3 (Good Parity Probability)
       </div>
     </div>
-    """
-    m.get_root().add_child(folium.Element(state_legend_html))
+    """.replace('\n', '').replace("'", "\'")
 
+    pin_legend_html = ""
     if legend_items:
-        pin_legend_html = "<div id='pin-category-legend' style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 10001; font-family: Calibri; display: flex; align-items: center;'>"
+        pin_legend_items_html = ""
         for category, pin_url in sorted(legend_items.items()):
-            pin_legend_html += f"<span style='display: flex; align-items: center; margin-right: 18px;'><img src='{pin_url}' style='width:22px;height:22px;margin-right:6px;'><span>{category}</span></span>"
-        pin_legend_html += "</div>"
-        m.get_root().add_child(folium.Element(pin_legend_html))
+            pin_legend_items_html += f"<span style='display: flex; align-items: center; margin-right: 18px;'><img src='{pin_url}' style='width:22px;height:22px;margin-right:6px;'><span>{category}</span></span>"
+        
+        pin_legend_html = f"""
+        <div id='pin-category-legend' style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 10001; font-family: Calibri; display: flex; align-items: center;'>
+            {pin_legend_items_html}
+        </div>
+        """.replace('\n', '').replace("'", "\'")
+
+
+    script = f"""
+        <script type='text/javascript'>
+            function addLegends() {{
+                var stateLegend = L.DomUtil.create('div', 'legend-container');
+                stateLegend.innerHTML = '{state_legend_html}';
+                document.querySelector('.folium-map').appendChild(stateLegend);
+
+                var pinLegend = L.DomUtil.create('div', 'legend-container');
+                pinLegend.innerHTML = '{pin_legend_html}';
+                document.querySelector('.folium-map').appendChild(pinLegend);
+            }}
+            
+            // Wait for the map to initialize, then add legends
+            setTimeout(addLegends, 1000); 
+        </script>
+    """
+    m.get_root().add_child(folium.Element(script))
 
     styles = """
     <style>
