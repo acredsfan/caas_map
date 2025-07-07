@@ -539,7 +539,7 @@ def generate_map():
         """
         m.get_root().add_child(folium.Element(table_html))
 
-    # --- State Group Legend (as in attached image) ---
+    # --- Legends ---
     state_legend_html = """
     <div id='state-group-legend' style='position: fixed; bottom: 20px; left: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 12px 18px; z-index: 10001; font-family: Calibri;'>
       <div style='font-weight: bold; margin-bottom: 8px;'>State Grouping Color Guide</div>
@@ -556,33 +556,14 @@ def generate_map():
         Group 3 (Good Parity Probability)
       </div>
     </div>
-    <script>
-    // Ensure legend stays on top of map controls
-    setTimeout(function() {
-      var legend = document.getElementById('state-group-legend');
-      if (legend) legend.style.zIndex = 10001;
-    }, 1000);
-    </script>
     """
     m.get_root().add_child(folium.Element(state_legend_html))
 
-    # --- Pin/Category Legend (centered, single line if multiple categories) ---
     if legend_items:
-        if len(legend_items) == 1:
-            # Only one category
-            category, pin_url = next(iter(legend_items.items()))
-            pin_legend_html = f"""
-            <div style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 9999; font-family: Calibri; display: flex; align-items: center;'>
-                <img src='{pin_url}' style='width:22px;height:22px;margin-right:8px;'>
-                <span>{category}</span>
-            </div>
-            """
-        else:
-            # Multiple categories: show all in a single line
-            pin_legend_html = "<div style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 9999; font-family: Calibri; display: flex; align-items: center;'>"
-            for category, pin_url in sorted(legend_items.items()):
-                pin_legend_html += f"<span style='display: flex; align-items: center; margin-right: 18px;'><img src='{pin_url}' style='width:22px;height:22px;margin-right:6px;'><span>{category}</span></span>"
-            pin_legend_html += "</div>"
+        pin_legend_html = "<div id='pin-category-legend' style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 10001; font-family: Calibri; display: flex; align-items: center;'>"
+        for category, pin_url in sorted(legend_items.items()):
+            pin_legend_html += f"<span style='display: flex; align-items: center; margin-right: 18px;'><img src='{pin_url}' style='width:22px;height:22px;margin-right:6px;'><span>{category}</span></span>"
+        pin_legend_html += "</div>"
         m.get_root().add_child(folium.Element(pin_legend_html))
 
     styles = """
