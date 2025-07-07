@@ -25,7 +25,11 @@ from geopy.extra.rate_limiter import RateLimiter
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 app = Flask(__name__)
-app.config['SERVER_NAME'] = 'caas-map-old.link-smart-home.com'
+# Disable template caching for development
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+# Comment out SERVER_NAME for local development
+# app.config['SERVER_NAME'] = 'caas-map-old.link-smart-home.com'
 app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')
@@ -67,9 +71,13 @@ def load_and_inject_svg(svg_path, number_value):
     return svg_content
 
 
-# Pin definitions
-with app.app_context():
-    PIN_TYPES = {
+# Pin definitions - move inside route handlers to avoid URL generation issues
+PIN_TYPES = {}
+
+
+def get_pin_types():
+    """Get pin types with proper URL generation within request context"""
+    return {
         "primary_dark_blue_sphere": {
             "url": url_for("static", filename="img/sphere_pin_primary_dark_blue.svg"),
             "numbered": False,
@@ -369,11 +377,12 @@ def assign_pins():
         df['Category Name'] = df['Category Name'].astype(str).fillna('Uncategorized')
         categories = sorted(df['Category Name'].unique())
 
+        pin_types = get_pin_types()
         return render_template_string(
             PIN_ASSIGNMENT_TEMPLATE,
             filename=filename,
             categories=categories,
-            pin_types=PIN_TYPES,
+            pin_types=pin_types,
             cluster_pins=str(request.form.get("cluster_pins") == "true").lower()
         )
     except Exception as e:
@@ -405,6 +414,8 @@ def generate_map():
             pin_map[category_name] = value
 
     cluster_pins = request.form.get("cluster_pins") == 'true'
+
+    pin_types = get_pin_types()
 
     m = folium.Map(
         location=[39.8283, -98.5795],
@@ -494,8 +505,8 @@ def generate_map():
         lat, lon = row["Latitude"], row["Longitude"]
         if pd.notnull(lat) and pd.notnull(lon):
             category = row['Category Name']
-            pin_type_key = pin_map.get(category, list(PIN_TYPES.keys())[0])
-            pin_data = PIN_TYPES[pin_type_key]
+            pin_type_key = pin_map.get(category, list(pin_types.keys())[0])
+            pin_data = pin_types[pin_type_key]
 
             if category not in legend_items:
                 legend_items[category] = pin_data['url']
@@ -550,7 +561,86 @@ def generate_map():
 
     map_html = m._repr_html_()
 
-    return render_template("map_template.html", map_html=map_html, legend_items=legend_items, table_rows=table_rows)
+    # Save the map to a file and redirect to intermediate page
+    map_id = str(uuid.uuid4())
+    map_path = os.path.join(basedir, "static", "maps", f"{map_id}.html")
+    
+    # Render the map template to a file
+    map_content = render_template("map_template.html", 
+                                  map_html=map_html, 
+                                  legend_items=legend_items, 
+                                  table_rows=table_rows)
+    
+    with open(map_path, 'w', encoding='utf-8') as f:
+        f.write(map_content)
+    
+    # Clean up: Delete the uploaded file after successful map generation
+    try:
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            app.logger.info(f"Deleted uploaded file: {filepath}")
+    except Exception as e:
+        app.logger.warning(f"Could not delete uploaded file {filepath}: {e}")
+    
+    # Redirect to intermediate page with Start Over button
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Map Generated</title>
+        <style>
+            body {{
+                font-family: Calibri, sans-serif;
+                background: #f4f7fa;
+                margin: 0;
+                padding: 40px;
+                text-align: center;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 0 auto;
+                background: #fff;
+                border-radius: 8px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+                padding: 40px;
+            }}
+            h1 {{
+                color: #333;
+                margin-bottom: 20px;
+            }}
+            .btn {{
+                background: #0056b8;
+                color: #fff;
+                border: none;
+                border-radius: 4px;
+                padding: 12px 24px;
+                cursor: pointer;
+                font-size: 16px;
+                text-decoration: none;
+                display: inline-block;
+                margin: 10px;
+            }}
+            .btn:hover {{
+                background: #004494;
+            }}
+            .btn.secondary {{
+                background: #6c757d;
+            }}
+            .btn.secondary:hover {{
+                background: #545b62;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Map Generated Successfully!</h1>
+            <p>Your map has been created and is ready to view.</p>
+            <a href="/map/{map_id}" target="_blank" class="btn">View Map</a>
+            <a href="/" class="btn secondary">Start Over</a>
+        </div>
+    </body>
+    </html>
+    """
 
 
 @app.route("/map/<map_id>")
@@ -632,4 +722,4 @@ def map_output(map_id):
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5050)
+    app.run(host='0.0.0.0', port=5050, debug=True)
