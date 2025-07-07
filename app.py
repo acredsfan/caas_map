@@ -34,6 +34,15 @@ app.config['APPLICATION_ROOT'] = '/'
 app.config['PREFERRED_URL_SCHEME'] = 'https'
 app.config['UPLOAD_FOLDER'] = os.path.join(basedir, 'uploads')
 
+# Add cache-busting headers for remote deployment
+@app.after_request
+def add_no_cache_headers(response):
+    """Add headers to prevent caching in production/remote environments"""
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, public, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
+
 # Directories
 os.makedirs(os.path.join(basedir, "static", "maps"), exist_ok=True)
 os.makedirs(os.path.join(basedir, "static", "img"), exist_ok=True)
