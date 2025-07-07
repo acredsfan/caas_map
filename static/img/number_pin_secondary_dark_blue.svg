@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="65" height="82" viewBox="0 0 65 82">
+<svg xmlns="http://www.w3.org/2000/svg" width="65" height="55" viewBox="0 0 65 55">
   <!-- Shift everything down by 2px so the top isn’t clipped -->
   <g transform="translate(0,2)">
     <path fill="#002d74" stroke="#4d6ca3" stroke-width="2"

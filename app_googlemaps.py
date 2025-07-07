@@ -164,11 +164,11 @@ pins = pins.map(function(pin) {
 const pinType = {{ pin_type|tojson }};
 
 const PIN_ANCHORS = {
-  'primary_dark_blue_number':   [32, 41, 10],
-  'primary_light_blue_number':  [32, 41, 10],
-  'green_number':               [32, 41, 10],
-  'secondary_dark_blue_number': [32, 41, 10],
-  'teal_number':                [32, 41, 10],
+  'primary_dark_blue_number':   [32, 27, 10],
+  'primary_light_blue_number':  [32, 27, 10],
+  'green_number':               [32, 27, 10],
+  'secondary_dark_blue_number': [32, 27, 10],
+  'teal_number':                [32, 27, 10],
   'primary_dark_blue_sphere':   [25, 50, 10],
   'primary_light_blue_sphere':  [25, 50, 10],
   'green_sphere':               [25, 50, 10],

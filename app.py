@@ -443,16 +443,23 @@ def generate_map():
     df = df.merge(us_states[['StateAbbr', 'CaaS Group']], left_on='State', right_on='StateAbbr', how='left')
 
     if cluster_pins:
+        # Use your color scheme for clusters: dark blue, light blue, teal, green
+        # We'll use the following mapping:
+        # >=100: dark blue (#0056b8), >=50: light blue (#00a1e0), >=10: teal (#00bfae), else: green (#6bc04b)
         icon_create_function = """
         function(cluster) {
             var childCount = cluster.getChildCount();
-            var c = ' marker-cluster-';
-            if (childCount < 10) { c += 'small'; }
-            else if (childCount < 100) { c += 'medium'; }
-            else { c += 'large'; }
+            var color = '#6bc04b'; // green default
+            if (childCount >= 100) {
+                color = '#0056b8'; // dark blue
+            } else if (childCount >= 50) {
+                color = '#00a1e0'; // light blue
+            } else if (childCount >= 10) {
+                color = '#00bfae'; // teal
+            }
             return new L.DivIcon({
-                html: '<div><span>' + childCount + '</span></div>',
-                className: 'marker-cluster' + c,
+                html: '<div style="background:' + color + '"><span>' + childCount + '</span></div>',
+                className: 'marker-cluster',
                 iconSize: new L.Point(40, 40)
             });
         }
@@ -487,58 +494,83 @@ def generate_map():
     if cluster_pins:
         table_rows = ""
         for _, row in df.iterrows():
-            group = row.get('CaaS Group')
-            hex_color = GROUP_COLORS.get(group)
-            rgba_color = hex_to_rgba(hex_color, alpha=0.3)
-            table_rows += f"<tr style='background-color: {rgba_color};'><td>{row['Location Name']}</td><td>{row['Electrification Candidates']}</td></tr>"
-        
+            n = row.get('Electrification Candidates', 1)
+            try:
+                n = int(n)
+            except Exception:
+                n = 1
+            if n >= 100:
+                color = '#0056b8'
+            elif n >= 50:
+                color = '#00a1e0'
+            elif n >= 10:
+                color = '#00bfae'
+            elif n >= 2:
+                color = '#6bc04b'
+            else:
+                color = None
+            if color:
+                rgba_color = hex_to_rgba(color, alpha=0.25)
+                row_style = f"background-color: {rgba_color};"
+            else:
+                row_style = ""
+            table_rows += f"<tr style='{row_style}'><td>{row['Location Name']}</td><td>{row['Electrification Candidates']}</td></tr>"
         table_html = f"""
-        <div style="position: fixed; top: 80px; right: 10px; width: 300px; max-height: 80vh;
-        background-color: white; border:1px solid #ccc; z-index:9998; border-radius:5px;
-        padding: 10px; font-family: Calibri; overflow-y: auto;">
-          <h4 style="margin-top:0; margin-bottom: 10px; font-weight: bold;">Locations</h4>
-          <table style="width: 100%; border-collapse: collapse;">
-            <thead style="font-weight: bold;">
+        <div style=\"position: fixed; top: 80px; right: 10px; width: 300px; max-height: 80vh;\"
+        style=\"background-color: white; border:1px solid #ccc; z-index:9998; border-radius:5px;\"
+        style=\"padding: 10px; font-family: Calibri; overflow-y: auto;\">
+          <h4 style=\"margin-top:0; margin-bottom: 10px; font-weight: bold;\">Locations</h4>
+          <table style=\"width: 100%; border-collapse: collapse;\">
+            <thead style=\"font-weight: bold;\">
               <tr>
-                <td style="padding: 4px; border-bottom: 1px solid #ddd;">Location</td>
-                <td style="padding: 4px; border-bottom: 1px solid #ddd;">Candidates</td>
+                <td style=\"padding: 4px; border-bottom: 1px solid #ddd;\">Location</td>
+                <td style=\"padding: 4px; border-bottom: 1px solid #ddd;\">Candidates</td>
               </tr>
             </thead>
             <tbody>{table_rows}</tbody>
           </table>
         </div>
         """
-        m.get_root().html.add_child(folium.Element(table_html))
+        m.get_root().add_child(folium.Element(table_html))
 
-    # --- State Group Legend ---
+    # --- State Group Legend (as in attached image) ---
     state_legend_html = """
-    <div style="position: fixed; bottom: 10px; left: 10px; width:auto; height:auto;
-    background-color: white; border:2px solid grey; z-index:9999; border-radius:5px;
-    padding: 10px; font-family: Calibri;">
-      <h4 style="margin-top:0; margin-bottom: 10px; font-weight: bold; text-align: center;">State Grouping</h4>
-      <div style="margin-bottom:5px; display: flex; align-items: center;">
-        <i style="background:#0056b8;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
-        Group 1
+    <div style='position: fixed; bottom: 20px; left: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 12px 18px; z-index: 9999; font-family: Calibri;'>
+      <div style='font-weight: bold; margin-bottom: 8px;'>State Grouping Color Guide</div>
+      <div style='display: flex; align-items: center; margin-bottom: 6px;'>
+        <span style='display:inline-block;width:24px;height:16px;background:#0056b8;border-radius:4px;margin-right:10px;'></span>
+        Group 1 (Best Parity Probability)
       </div>
-      <div style="margin-bottom:5px; display: flex; align-items: center;">
-        <i style="background:#00a1e0;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
-        Group 2
+      <div style='display: flex; align-items: center; margin-bottom: 6px;'>
+        <span style='display:inline-block;width:24px;height:16px;background:#00a1e0;border-radius:4px;margin-right:10px;'></span>
+        Group 2 (Better Parity Probability)
       </div>
-      <div style="display: flex; align-items: center;">
-        <i style="background:#a1d0f3;width:40px;height:20px;display:inline-block;margin-right:8px;"></i>
-        Group 3
+      <div style='display: flex; align-items: center;'>
+        <span style='display:inline-block;width:24px;height:16px;background:#a1d0f3;border-radius:4px;margin-right:10px;'></span>
+        Group 3 (Good Parity Probability)
       </div>
     </div>
     """
-    m.get_root().html.add_child(folium.Element(state_legend_html))
+    m.get_root().add_child(folium.Element(state_legend_html))
 
-    # --- Pin Legend ---
-    pin_legend_html = '<div class="pin-legend-container">'
-    pin_legend_html += '<h4 style="margin-top:0; margin-bottom:10px; text-align:center;">Pin Legend</h4><div class="pin-legend-items">'
-    for category, pin_url in sorted(legend_items.items()):
-        pin_legend_html += f'<div class="pin-legend-item"><img src="{pin_url}" class="pin-legend-icon"> {category}</div>'
-    pin_legend_html += '</div></div>'
-    m.get_root().html.add_child(folium.Element(pin_legend_html))
+    # --- Pin/Category Legend (centered, single line if multiple categories) ---
+    if legend_items:
+        if len(legend_items) == 1:
+            # Only one category
+            category, pin_url = next(iter(legend_items.items()))
+            pin_legend_html = f"""
+            <div style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 9999; font-family: Calibri; display: flex; align-items: center;'>
+                <img src='{pin_url}' style='width:22px;height:22px;margin-right:8px;'>
+                <span>{category}</span>
+            </div>
+            """
+        else:
+            # Multiple categories: show all in a single line
+            pin_legend_html = "<div style='position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 10px 18px; z-index: 9999; font-family: Calibri; display: flex; align-items: center;'>"
+            for category, pin_url in sorted(legend_items.items()):
+                pin_legend_html += f"<span style='display: flex; align-items: center; margin-right: 18px;'><img src='{pin_url}' style='width:22px;height:22px;margin-right:6px;'><span>{category}</span></span>"
+            pin_legend_html += "</div>"
+        m.get_root().add_child(folium.Element(pin_legend_html))
 
     styles = """
     <style>
@@ -547,18 +579,8 @@ def generate_map():
     .custom-label-text { background: white !important; border: 1px solid #ccc !important; border-radius: 8px; font-size: 14px; font-family: 'Calibri', sans-serif; font-weight: bold; color: #000; text-align: center; white-space: nowrap; padding: 4px 10px; margin-top: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); display: inline-block; }
     .sphere-pin { width: 50px; height: 50px; }
     .group1-state { filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); -webkit-filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); }
-    .marker-cluster-small { background-color: rgba(107, 192, 75, 0.8); }
-    .marker-cluster-small div { background-color: rgba(107, 192, 75, 1); }
-    .marker-cluster-medium { background-color: rgba(0, 161, 224, 0.8); }
-    .marker-cluster-medium div { background-color: rgba(0, 161, 224, 1); }
-    .marker-cluster-large { background-color: rgba(0, 86, 184, 0.8); }
-    .marker-cluster-large div { background-color: rgba(0, 86, 184, 1); }
-    .marker-cluster { color: #fff; border-radius: 50%; text-align: center; font-weight: bold; font-family: Calibri, sans-serif; }
-    .marker-cluster div { width: 30px; height: 30px; margin-left: 5px; margin-top: 5px; border-radius: 50%; line-height: 30px; }
-    .pin-legend-container { position: fixed; bottom: 10px; left: 50%; transform: translateX(-50%); background-color: white; border: 2px solid grey; z-index: 9999; border-radius: 5px; padding: 10px; font-family: Calibri; }
-    .pin-legend-items { display: flex; flex-direction: row; justify-content: center; align-items: center; }
-    .pin-legend-item { display: flex; align-items: center; margin: 0 15px; }
-    .pin-legend-icon { width: 25px; height: 25px; margin-right: 8px; }
+    .marker-cluster { color: #fff; border-radius: 50%; text-align: center; font-weight: bold; font-family: Calibri, sans-serif; background: #6bc04b; border: 2px solid #fff; }
+    .marker-cluster div { width: 40px; height: 40px; border-radius: 50%; line-height: 40px; font-size: 18px; display: flex; align-items: center; justify-content: center; }
     </style>
     """
     m.get_root().add_child(folium.Element(styles))
