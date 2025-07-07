@@ -393,10 +393,16 @@ def generate_map():
     
     m = folium.Map(location=[39.8283, -98.5795], zoom_start=5, tiles="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png", attr="©OpenStreetMap contributors ©CartoDB", zoomSnap=0.01, zoomDelta=0.01)
     
+    # --- State Group Colors ---
+    GROUP_COLORS = {
+        "Group 1": "#0056b8",  # dark blue
+        "Group 2": "#00a1e0",  # medium blue
+        "Group 3": "#a1d0f3",  # lightest blue
+    }
     folium.GeoJson(
         data=us_states.__geo_interface__,
         style_function=lambda feat: {
-            "fillColor": GROUP_COLORS.get(feat["properties"]["CaaS Group"], "gray"),
+            "fillColor": GROUP_COLORS.get(feat["properties"].get("CaaS Group"), "gray"),
             "color": "black",
             "weight": 1,
             "fillOpacity": 1.0,
@@ -535,7 +541,7 @@ def generate_map():
 
     # --- State Group Legend (as in attached image) ---
     state_legend_html = """
-    <div style='position: fixed; bottom: 20px; left: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 12px 18px; z-index: 9999; font-family: Calibri;'>
+    <div id='state-group-legend' style='position: fixed; bottom: 20px; left: 20px; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); border: 2px solid #bbb; padding: 12px 18px; z-index: 10001; font-family: Calibri;'>
       <div style='font-weight: bold; margin-bottom: 8px;'>State Grouping Color Guide</div>
       <div style='display: flex; align-items: center; margin-bottom: 6px;'>
         <span style='display:inline-block;width:24px;height:16px;background:#0056b8;border-radius:4px;margin-right:10px;'></span>
@@ -550,6 +556,13 @@ def generate_map():
         Group 3 (Good Parity Probability)
       </div>
     </div>
+    <script>
+    // Ensure legend stays on top of map controls
+    setTimeout(function() {
+      var legend = document.getElementById('state-group-legend');
+      if (legend) legend.style.zIndex = 10001;
+    }, 1000);
+    </script>
     """
     m.get_root().add_child(folium.Element(state_legend_html))
 
@@ -576,7 +589,7 @@ def generate_map():
     <style>
     .div-icon-container { position: relative; text-align: center; }
     .pin-image-wrapper { position: relative; display: inline-block; }
-    .custom-label-text { background: white !important; border: 1px solid #ccc !important; border-radius: 8px; font-size: 14px; font-family: 'Calibri', sans-serif; font-weight: bold; color: #000; text-align: center; white-space: nowrap; padding: 4px 10px; margin-top: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); display: inline-block; }
+    .custom-label-text { background: white !important; border: 1px solid #ccc !important; border-radius: 8px; font-size: 14px; font-family: 'Calibri', sans-serif; font-weight: 900 !important; color: #000; text-align: center; white-space: nowrap; padding: 4px 10px; margin-top: 5px; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); display: inline-block; }
     .sphere-pin { width: 50px; height: 50px; }
     .group1-state { filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); -webkit-filter: drop-shadow(5px 5px 4px rgba(0, 0, 0, 0.5)); }
     .marker-cluster { color: #fff; border-radius: 50%; text-align: center; font-weight: bold; font-family: Calibri, sans-serif; background: #6bc04b; border: 2px solid #fff; }
