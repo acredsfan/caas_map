@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Map Generated Successfully</title>
+    <style>
+        body { font-family: Calibri, sans-serif; background: #f4f7fa; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 50px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 40px; text-align: center; }
+        h1 { color: #0056b8; margin-bottom: 20px; }
+        .success-icon { font-size: 48px; color: #28a745; margin-bottom: 20px; }
+        .btn { display: inline-block; background: #0056b8; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 5px; margin: 10px; font-weight: bold; transition: background 0.3s; }
+        .btn:hover { background: #004494; }
+        .btn.secondary { background: #6c757d; }
+        .btn.secondary:hover { background: #545b62; }
+        .stats { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; font-size: 14px; color: #666; }
+        .download-options { margin-top: 20px; }
+        .download-options h3 { color: #333; font-size: 18px; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="success-icon">✅</div>
+        <h1>Map Generated Successfully!</h1>
+        <p>Your interactive map has been created and is ready to view.</p>
+        
+        {% if geocoding_stats %}
+        <div class="stats">
+            <strong>Processing Summary:</strong><br>
+            Total locations: {{ geocoding_stats.total }}<br>
+            Successfully geocoded: {{ geocoding_stats.successful }}<br>
+            {% if geocoding_stats.failed > 0 %}
+            <span style="color: #dc3545;">Failed to geocode: {{ geocoding_stats.failed }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <div class="download-options">
+            <h3>View and Download Options:</h3>
+            <a href="{{ url_for('serve_map', map_id=map_id) }}" class="btn" target="_blank">🗺️ View Interactive Map</a>
+            <a href="{{ url_for('download_ppt', map_id=map_id) }}" class="btn">📊 Download PowerPoint</a>
+        </div>
+        
+        <div style="margin-top: 30px;">
+            <a href="/" class="btn secondary">🏠 Start Over</a>
+        </div>
+        
+        <div class="stats">
+            <small>💡 Tip: You can bookmark the map link to access it later. The map will remain available for this session.</small>
+        </div>
+    </div>
+</body>
+</html>

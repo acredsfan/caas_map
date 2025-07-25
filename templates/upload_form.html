@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Map Uploader</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+<div class="container">
+    <h1>Upload CSV/XLS/XLSX to Plot Pins</h1>
+    <p><strong>Required columns:</strong> Location Name, ZIP/Postal Code, Electrification Candidates, Category Name</p>
+    <p><strong>Optional columns:</strong> Street Address, City, State</p>
+    <p><strong>Accepted file types:</strong> .csv, .xls, .xlsx</p>
+
+    <form action="/assign_pins" method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <label>Choose File:</label><br>
+      <input type="file" name="file" accept=".csv,.xls,.xlsx" required/><br><br>
+
+      <div class="options">
+        <label>
+          <input type="checkbox" name="cluster_pins" value="true" checked> Cluster Pins
+        </label>
+      </div>
+
+      <button type="submit">Upload & Generate Map</button>
+      <div class="footer-links">
+        <a href="/download_template" download="location_pins_template.xlsx">Download Excel Template</a>
+      </div>
+    </form>
+</div>
+</body>
+</html>

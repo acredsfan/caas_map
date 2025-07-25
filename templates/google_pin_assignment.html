@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Assign Pin Colors - Google Maps</title>
+    <style>
+      body { font-family: Calibri, sans-serif; background: #f4f7fa; margin: 0; padding: 0; }
+      .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); padding: 20px 30px; }
+      h1 { margin-top: 0; color: #333; }
+      label { font-weight: bold; }
+      button { background: #0056b8; color: #fff; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
+      button:hover { background: #004494; }
+      .category-row { display: flex; align-items: center; margin-bottom: 15px; }
+      .category-name { width: 250px; font-weight: bold; }
+      .pin-type-select { padding: 5px; border-radius: 4px; margin-right: 10px; }
+      .color-input { width: 40px; height: 30px; border: none; border-radius: 4px; margin-right: 15px; }
+      .pin-preview { width: 40px; height: 40px; margin-left: 15px; object-fit: contain; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Assign Pin Colors to Categories</h1>
+    <p>For each category found in your file, select a pin type and color:</p>
+    <form method="POST" action="/generate_google_map">
+      <input type="hidden" name="session_data" value="{{ session_data }}"/>
+      
+      {% for category in categories %}
+      <div class="category-row">
+        <div class="category-name">{{ category }}</div>
+        <select name="pin_type_{{ category }}" class="pin-type-select" onchange="updatePreview('{{ category }}')">
+          <option value="sphere">Sphere Pin</option>
+          <option value="number">Number Pin</option>
+        </select>
+        <input type="color" name="pin_color_{{ category }}" class="color-input" value="#00a1e0" onchange="updatePreview('{{ category }}')"/>
+        <img id="preview_{{ category }}" src="" class="pin-preview">
+      </div>
+      {% endfor %}
+      
+      <br>
+      <button type="submit">Generate Map</button>
+    </form>
+</div>
+<script>
+  function updatePreview(category) {
+    const typeSelect = document.querySelector('select[name="pin_type_' + category + '"]');
+    const colorInput = document.querySelector('input[name="pin_color_' + category + '"]');
+    const previewImg = document.getElementById('preview_' + category);
+    
+    if (typeSelect && colorInput && previewImg) {
+      const encodedColor = encodeURIComponent(colorInput.value);
+      const number = typeSelect.value === 'number' ? '5' : '1';
+      previewImg.src = `/generate_custom_pin_svg?type=${typeSelect.value}&color=${encodedColor}&number=${number}`;
+    }
+  }
+  
+  // Initialize previews
+  document.addEventListener('DOMContentLoaded', function() {
+    {% for category in categories %}
+    updatePreview('{{ category }}');
+    {% endfor %}
+  });
+</script>
+</body>
+</html>

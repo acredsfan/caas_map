@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Error {{ error_code }}</title>
+    <style>
+        body { font-family: Calibri, sans-serif; background: #f4f7fa; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: 50px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 40px; text-align: center; }
+        .error-icon { font-size: 48px; color: #dc3545; margin-bottom: 20px; }
+        h1 { color: #dc3545; margin-bottom: 20px; }
+        .message { background: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #f5c6cb; }
+        .btn { display: inline-block; background: #0056b8; color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 5px; margin: 10px; font-weight: bold; transition: background 0.3s; }
+        .btn:hover { background: #004494; }
+        .btn.secondary { background: #6c757d; }
+        .btn.secondary:hover { background: #545b62; }
+        .help-text { background: #d1ecf1; color: #0c5460; padding: 15px; border-radius: 5px; margin: 20px 0; border: 1px solid #bee5eb; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon">❌</div>
+        <h1>Error {{ error_code }}</h1>
+        <div class="message">{{ message }}</div>
+        
+        {% if error_code == 400 %}
+        <div class="help-text">
+            <strong>Tip:</strong> Make sure your file includes the required columns: Location Name, ZIP/Postal Code, and Electrification Candidates.
+            You can <a href="/download_template">download our template</a> to ensure proper formatting.
+        </div>
+        {% elif error_code == 500 %}
+        <div class="help-text">
+            <strong>Something went wrong on our end.</strong> Please try again in a few moments. If the problem persists, check your file format and data.
+        </div>
+        {% endif %}
+        
+        <div>
+            <a href="/" class="btn">🏠 Go Home</a>
+            <a href="/download_template" class="btn secondary">📁 Download Template</a>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Map Uploader (Google Maps Version)</title>
+    <style>
+      body { margin: 0; padding: 0; font-family: Calibri; background: #f4f7fa; }
+      .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); padding: 20px 30px; }
+      h1 { margin-top: 0; color: #333; }
+      label { font-weight: bold; }
+      button { background: #0056b8; color: #fff; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
+      button:hover { background: #004494; }
+      a { color: #0056b8; text-decoration: none; margin-left: 8px; }
+      a:hover { text-decoration: underline; }
+      .footer-links { margin-top: 10px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Upload CSV/XLS/XLSX to Plot Pins (Google Maps Version)</h1>
+    <p><strong>Required columns:</strong> Location Name, ZIP/Postal Code, Electrification Candidates</p>
+    <p><strong>Optional columns:</strong> Street Address, City, State, Category Name</p>
+    <p><strong>Accepted file types:</strong> .csv, .xls, .xlsx</p>
+
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <label>Choose File:</label><br>
+      <input type="file" name="file" accept=".csv,.xls,.xlsx" required/><br><br>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:14px;">
+          <input type="checkbox" name="clustering_enabled" id="clustering_checkbox" checked>
+          Enable Clustering (show cluster table)
+        </label>
+        <span style="margin-left: 10px; font-size: 12px; color: #666;" id="clustering_debug">✓ Checked (will send 'on')</span>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label style="font-size:14px;">
+          <input type="checkbox" name="show_labels" id="labels_checkbox" checked>
+          Show Pin Labels (hover text)
+        </label>
+        <span style="margin-left: 10px; font-size: 12px; color: #666;" id="labels_debug">✓ Checked (will send 'on')</span>
+      </div>
+
+      <h3>State Group Colors</h3>
+      <p style="font-size: 14px; color: #666;">Customize the colors for state groups (TCO parity probability levels):</p>
+      <div style="margin-bottom: 20px;">
+        <div style="margin-bottom: 10px;">
+          <label for="group1_color" style="font-weight: bold;">Group 1 (Best Parity Probability):</label>
+          <input type="color" id="group1_color" name="group1_color" value="#0056b8" style="margin-left: 10px; width: 40px; height: 30px;">
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label for="group2_color" style="font-weight: bold;">Group 2 (Better Parity Probability):</label>
+          <input type="color" id="group2_color" name="group2_color" value="#00a1e0" style="margin-left: 10px; width: 40px; height: 30px;">
+        </div>
+        <div style="margin-bottom: 10px;">
+          <label for="group3_color" style="font-weight: bold;">Group 3 (Good Parity Probability):</label>
+          <input type="color" id="group3_color" name="group3_color" value="#a1d0f3" style="margin-left: 10px; width: 40px; height: 30px;">
+        </div>
+      </div>
+
+      <button type="submit">Upload & Assign Pin Colors</button>
+      <div class="footer-links">
+        <a href="/download_template" download="location_pins_template.xlsx">Download Excel Template</a>
+      </div>
+    </form>
+</div>
+</body>
+</html>

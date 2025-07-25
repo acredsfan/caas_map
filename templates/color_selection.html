@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Map Uploader - Step 3: Color Selection</title>
+    <style>
+      body { font-family: Calibri, sans-serif; background: #f4f7fa; margin: 0; padding: 0; }
+      .container { max-width: 800px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.15); padding: 20px 30px; }
+      h1 { margin-top: 0; color: #333; }
+      label { font-weight: bold; }
+      button { background: #0056b8; color: #fff; border: none; border-radius: 4px; padding: 10px 16px; cursor: pointer; font-size: 14px; }
+      button:hover { background: #004494; }
+      .color-row { display: flex; align-items: center; margin-bottom: 20px; padding: 15px; border-radius: 8px; border: 1px solid #dee2e6; background-color: #f8f9fa; }
+      .group-info { flex: 1; margin-right: 20px; }
+      .group-name { font-weight: bold; font-size: 16px; margin-bottom: 5px; }
+      .group-description { font-size: 14px; color: #666; }
+      .color-controls { display: flex; align-items: center; gap: 15px; }
+      .color-preview { width: 60px; height: 40px; border-radius: 4px; border: 2px solid #000; }
+      .color-input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+      .reset-btn { background: #6c757d; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+      .reset-btn:hover { background: #5a6268; }
+      .color-section { margin-bottom: 30px; }
+      .color-section h2 { color: #333; border-bottom: 2px solid #0056b8; padding-bottom: 10px; }
+      .preview-legend { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px; border: 1px solid #dee2e6; }
+      .legend-item { display: flex; align-items: center; margin-bottom: 10px; }
+      .legend-color { width: 24px; height: 16px; margin-right: 10px; border-radius: 4px; border: 1px solid #000; }
+      .legend-text { font-size: 14px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Step 3: Customize State Group Colors</h1>
+    <p>Customize the colors for each state group or keep the default values. These colors will be used to fill the state polygons on your map.</p>
+    
+    <form action="/generate_map" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <input type="hidden" name="filename" value="{{ filename }}">
+      <input type="hidden" name="cluster_pins" value="{{ cluster_pins }}">
+      
+      <!-- Preserve pin assignments -->
+      {% for category, pin_data in pin_assignments.items() %}
+      <input type="hidden" name="pin_type_{{ category }}" value="{{ pin_data.type }}">
+      <input type="hidden" name="pin_color_{{ category }}" value="{{ pin_data.color }}">
+      {% endfor %}
+      {% for category, pin_type in pin_assignments.items() %}
+      <input type="hidden" name="pin_map_{{ category }}" value="{{ pin_type }}">
+      {% endfor %}
+      
+      <div class="color-section">
+        <h2>State Group Colors</h2>
+        
+        <div class="color-row">
+          <div class="group-info">
+            <div class="group-name">Group 1</div>
+            <div class="group-description">Best TCO Parity Probability</div>
+          </div>
+          <div class="color-controls">
+            <div class="color-preview" id="preview_group1" style="background-color: {{ default_colors['Group 1'] }}"></div>
+            <input type="text" name="color_group1" id="color_group1" value="{{ default_colors['Group 1'] }}" 
+                   class="color-input" pattern="^#[0-9A-Fa-f]{6}$" title="Enter a valid hex color (e.g., #0056b8)"
+                   onchange="updatePreview('group1')" oninput="updatePreview('group1')">
+            <button type="button" class="reset-btn" onclick="resetColor('group1', '{{ default_colors['Group 1'] }}')">Reset</button>
+          </div>
+        </div>
+        
+        <div class="color-row">
+          <div class="group-info">
+            <div class="group-name">Group 2</div>
+            <div class="group-description">Better TCO Parity Probability</div>
+          </div>
+          <div class="color-controls">
+            <div class="color-preview" id="preview_group2" style="background-color: {{ default_colors['Group 2'] }}"></div>
+            <input type="text" name="color_group2" id="color_group2" value="{{ default_colors['Group 2'] }}" 
+                   class="color-input" pattern="^#[0-9A-Fa-f]{6}$" title="Enter a valid hex color (e.g., #00a1e0)"
+                   onchange="updatePreview('group2')" oninput="updatePreview('group2')">
+            <button type="button" class="reset-btn" onclick="resetColor('group2', '{{ default_colors['Group 2'] }}')">Reset</button>
+          </div>
+        </div>
+        
+        <div class="color-row">
+          <div class="group-info">
+            <div class="group-name">Group 3</div>
+            <div class="group-description">Good TCO Parity Probability</div>
+          </div>
+          <div class="color-controls">
+            <div class="color-preview" id="preview_group3" style="background-color: {{ default_colors['Group 3'] }}"></div>
+            <input type="text" name="color_group3" id="color_group3" value="{{ default_colors['Group 3'] }}" 
+                   class="color-input" pattern="^#[0-9A-Fa-f]{6}$" title="Enter a valid hex color (e.g., #a1d0f3)"
+                   onchange="updatePreview('group3')" oninput="updatePreview('group3')">
+            <button type="button" class="reset-btn" onclick="resetColor('group3', '{{ default_colors['Group 3'] }}')">Reset</button>
+          </div>
+        </div>
+      </div>
+      
+      <div class="preview-legend">
+        <h3>Legend Preview</h3>
+        <div class="legend-item">
+          <div class="legend-color" id="legend_group1" style="background-color: {{ default_colors['Group 1'] }}"></div>
+          <div class="legend-text">Group 1 (Best Parity Probability)</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" id="legend_group2" style="background-color: {{ default_colors['Group 2'] }}"></div>
+          <div class="legend-text">Group 2 (Better Parity Probability)</div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" id="legend_group3" style="background-color: {{ default_colors['Group 3'] }}"></div>
+          <div class="legend-text">Group 3 (Good Parity Probability)</div>
+        </div>
+      </div>
+      
+      <br>
+      <button type="submit">Generate Map</button>
+    </form>
+</div>
+
+<script>
+    function updatePreview(groupId) {
+        const input = document.getElementById('color_' + groupId);
+        const preview = document.getElementById('preview_' + groupId);
+        const legend = document.getElementById('legend_' + groupId);
+        const color = input.value;
+        
+        // Validate hex color format
+        if (/^#[0-9A-Fa-f]{6}$/.test(color)) {
+            preview.style.backgroundColor = color;
+            legend.style.backgroundColor = color;
+            input.style.borderColor = '#ccc';
+        } else {
+            input.style.borderColor = '#dc3545';
+        }
+    }
+    
+    function resetColor(groupId, defaultColor) {
+        const input = document.getElementById('color_' + groupId);
+        input.value = defaultColor;
+        updatePreview(groupId);
+    }
+    
+    // Add event listeners for real-time color picker support
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputs = document.querySelectorAll('.color-input');
+        inputs.forEach(input => {
+            // Create a hidden color input for browsers that support it
+            const colorPicker = document.createElement('input');
+            colorPicker.type = 'color';
+            colorPicker.value = input.value;
+            colorPicker.style.width = '30px';
+            colorPicker.style.height = '30px';
+            colorPicker.style.border = 'none';
+            colorPicker.style.cursor = 'pointer';
+            colorPicker.style.marginLeft = '5px';
+            
+            colorPicker.addEventListener('change', function() {
+                input.value = this.value;
+                input.dispatchEvent(new Event('change'));
+            });
+            
+            input.parentNode.insertBefore(colorPicker, input.nextSibling);
+        });
+    });
+</script>
+</body>
+</html>

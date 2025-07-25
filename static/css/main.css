@@ -1,0 +1,93 @@
+/* Main stylesheet for State Tier Map */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Calibri, sans-serif;
+  background: #f4f7fa;
+}
+.container {
+  max-width: 800px;
+  margin: 40px auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+  padding: 20px 30px;
+}
+h1 {
+  color: #333;
+  margin-top: 0;
+}
+label, p {
+  font-weight: bold;
+}
+button {
+  background: #0056b8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 14px;
+}
+button:hover {
+  background: #004494;
+}
+.btn {
+  background: #0056b8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 12px 24px;
+  text-decoration: none;
+  display: inline-block;
+  margin: 10px;
+}
+.btn:hover {
+  background: #004494;
+}
+.btn.secondary {
+  background: #6c757d;
+}
+.btn.secondary:hover {
+  background: #545b62;
+}
+.footer-links {
+  margin-top: 10px;
+}
+/* Pin assignment styles */
+.category-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+}
+.category-name {
+  width: 250px;
+  font-weight: bold;
+}
+.select, select {
+  padding: 5px;
+  border-radius: 4px;
+}
+.pin-preview {
+  width: 40px;
+  height: 40px;
+  margin-left: 15px;
+  object-fit: contain;
+}
+.pin-style-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 15px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #dee2e6;
+}
+.pin-style-preview > div img {
+  width: 30px;
+  height: 30px;
+  margin-bottom: 5px;
+}

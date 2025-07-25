@@ -7,3 +7,5 @@ geopy
 openpyxl
 python-pptx
 python-dotenv
+flask-wtf
+googlemaps

@@ -2,3 +2,10 @@ static/maps/*.html
 static/maps/*.pptx
 static/maps/*.ppt
 .env
+Distribution Network.kml
+.kiro/
+.gemini/
+.mypy_cache/
+.idea/
+.venv/
+__pycache__/
