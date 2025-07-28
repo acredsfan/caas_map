@@ -1564,7 +1564,7 @@ def download_template():
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False, sheet_name='locations')
     output.seek(0)
-    return send_file(output, download_name="location_pins_template.xlsx", as_attachment=True)
+    return send_file(output, download_name="enhanced_location_pins_template.xlsx", as_attachment=True)
 
 @app.route("/")
 def index():
