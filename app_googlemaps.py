@@ -1123,8 +1123,15 @@ def google_maps_form():
                 df = pd.read_csv(io.StringIO(uploaded_file.read().decode("utf-8")))
                 print(f"Successfully read CSV file with {len(df)} rows")
             elif filename.lower().endswith((".xls", ".xlsx")):
-                df = pd.read_excel(uploaded_file)
-                print(f"Successfully read Excel file with {len(df)} rows")
+                # Try to read from "Location Pins" sheet first, fall back to first sheet
+                try:
+                    df = pd.read_excel(uploaded_file, sheet_name="Location Pins")
+                    print(f"Successfully read Excel file from 'Location Pins' sheet with {len(df)} rows")
+                except ValueError:
+                    # Sheet doesn't exist, try the first sheet
+                    uploaded_file.seek(0)  # Reset file pointer
+                    df = pd.read_excel(uploaded_file, sheet_name=0)
+                    print(f"Successfully read Excel file from first sheet with {len(df)} rows (Location Pins sheet not found)")
             else:
                 return Response("Error: Only .csv, .xls, or .xlsx files are supported.", status=400)
         except UnicodeDecodeError as e:
@@ -1550,8 +1557,9 @@ def serve_google_map(map_id):
 
 @app.route("/download_template")
 def download_template():
-    """Download Excel template"""
-    df = pd.DataFrame({
+    """Download Excel template with Location Pins sheet"""
+    # Create Location Pins data
+    location_pins_df = pd.DataFrame({
         "Location Name": ["Example A", "Example B"],
         "Street Address": ["123 Main St", ""],
         "City": ["Anytown", ""],
@@ -1560,9 +1568,33 @@ def download_template():
         "Electrification Candidates": [10, 5],
         "Category Name": ["Retail", "Warehouse"],
     })
+    
+    # Create a second sheet with instructions or additional data
+    instructions_df = pd.DataFrame({
+        "Instructions": [
+            "This template contains two tabs:",
+            "1. Location Pins - Enter your location data here",
+            "2. Instructions - This tab with usage information",
+            "",
+            "Required columns in Location Pins tab:",
+            "- Location Name (required)",
+            "- ZIP/Postal Code (required)", 
+            "- Electrification Candidates (required)",
+            "",
+            "Optional columns:",
+            "- Street Address",
+            "- City", 
+            "- State",
+            "- Category Name"
+        ]
+    })
+    
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='locations')
+        # Write Location Pins sheet (this is what the app will read)
+        location_pins_df.to_excel(writer, index=False, sheet_name='Location Pins')
+        # Write Instructions sheet
+        instructions_df.to_excel(writer, index=False, sheet_name='Instructions')
     output.seek(0)
     return send_file(output, download_name="enhanced_location_pins_template.xlsx", as_attachment=True)
 
